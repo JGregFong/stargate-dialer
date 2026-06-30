@@ -2,4 +2,8 @@
 name = "stargate-dialer"
 version = "0.1.0"
 requires-python = ">=3.14"
-dependencies = []
+dependencies = [
+
+    "pyqt6>=6.11.0",
+    "pyqt6-qt6>=6.11.1",
+]

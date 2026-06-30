@@ -4,6 +4,8 @@ import random
 
 address_list = glyph_database.address_list
 glyphs = glyph_database.glyphs
+speed = 15
+
 
 def print_hi(name):
     # Use a breakpoint in the code line below to debug your script.
@@ -11,9 +13,6 @@ def print_hi(name):
     time.sleep(random.randint(1, 3))
     if check_valid_destination("Earth"):
         dial_address("Earth")
-
-
-
 
 
 def dial_address(address):
@@ -24,11 +23,33 @@ def dial_address(address):
     else:
         print("Invalid address")
 
-def manual_dial (number):
-    symbol_list =[]
-    if 8 >= number >= 6:
-        for symbol in range(number):
-            symbol_list.append(input(f"Enter symbol number {symbol}"))
+
+def dial(dial_mode, max_number):
+    symbol_list = []
+
+    if dial_mode == "Local Dialing":
+        for symbol in range(6):
+            symbol_list.append(input(f"Enter symbol index number {symbol+1}"))
+
+        if match_address(symbol_list):
+            symbol_list.append(0)
+            establish_wormhole()
+        else:
+            fail_connection()
+
+
+    if 8 >= max_number > 6:
+        for symbol in range(max_number):
+            glyph = input(f"Enter symbol index number {symbol+1}")
+            symbol_list.append(glyph)
+            print("Chevron")
+
+        if match_address(symbol_list):
+            print("Chevron {}".format(max_number) + " Locked")
+            establish_wormhole()
+        else:
+            print("Chevron {}".format(max_number) + " will not engage.")
+            fail_connection()
 
 
     else:
@@ -44,16 +65,19 @@ def randomized_dialing():
         randomized_address.append(choice)
         remaining_glyphs.remove(choice)
 
-    check_valid_destination("Earth")
+    if match_address(randomized_address):
+        establish_wormhole()
+    else:
+        fail_connection()
 
-def match_address(destination):
-
+# Checks input address against address list
+def match_address(input_address):
     for name, address in address_list.items():
-        if address == destination:
-            print(f"Address matched. {name}")
+        if address == input_address:
             return True
 
     return False
+
 
 
 def check_valid_destination(destination):
@@ -64,16 +88,22 @@ def check_valid_destination(destination):
     return False
 
 
-def point_of_origin():
-    return 0
+
+def establish_wormhole():
+    print("Wormhole Established")
+
+
+def fail_connection():
+    print("Wormhole has failed to establish")
+    print("Connection Failed")
+
 
 if __name__ == '__main__':
     print_hi('PyCharm')
     print("Stargate Dialing Program")
 
     print("1. Manual Dialing")
-    print("2. Dial Address From Database")
+    print("2. Look up Address")
 
 
-
-    planet = input("Please enter your destination: ")
+    #planet = input("Please enter your destination: ")
