@@ -1,0 +1,2 @@
+# Build-only tool; the simulator's runtime dependencies are in pyproject.toml.
+pyinstaller==6.22.3

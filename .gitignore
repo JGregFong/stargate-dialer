@@ -216,3 +216,6 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Keep the hand-maintained executable build specification.
+!StargateDialer.spec
