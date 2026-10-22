@@ -1,12 +1,18 @@
 # stargate-dialer
-Using Python to make a stargate dialing simulator.
+Using Python and ChatGPT's Cursor to make a stargate dialing simulator.
 
 Will be updating whenever.
 
-Used PyQt6
+Used PyGame
 "stargate_sg1_adress_glyphs.ttf" by "Joy Anne Baker" from "https://www.thescifiworld.net/fonts.htm" was used for the glyphs
+Sounds were from a fork of RafaelDeJongh's Carter's Addon pack
 
 All materials and copyright under the Stargate brand belongs to Amazon and MGM Studios.
+
+DISCLAIMER: 
+ChatGPT's Cursor was used in the generation of code in PyGame. 
+Artwork generated was only through the use of PyGame's existing documentation and ChatGPT's Cursor.
+No other artwork, sound effects, and voices were generated through ChatGPT.
 
 
 ## Pygame simulator
