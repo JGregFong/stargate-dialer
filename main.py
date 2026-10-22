@@ -21,8 +21,9 @@ RED = (248, 65, 47)
 WHITE = (235, 246, 243)
 YELLOW = (207, 216, 147)
 GREEN = (127, 226, 103)
+TEXT_FONT_PATH = Path(__file__).resolve().parent / 'BankGothic Bold.ttf'
 CENTER = (640, 435)
-GATE_SCALE = 1.18
+GATE_SCALE = 1.2
 HORIZON_RADIUS = round(201 * GATE_SCALE)
 # Clockwise from the top, matching the physical gate chevrons.
 CHEVRON_ANGLES = (40, 80, 120, 240, 280, 320, 160, 200)
@@ -207,13 +208,13 @@ class Console:
     # Cache interface fonts and draw ordinary left-aligned labels.
     def text(self, text, pos, size=16, color=CYAN, surface=None):
         if size not in self.fonts:
-            self.fonts[size] = pygame.font.SysFont('consolas', size, bold=True)
+            self.fonts[size] = pygame.font.Font(str(TEXT_FONT_PATH), size)
         (surface or self.canvas).blit(self.fonts[size].render(str(text), True, color), pos)
 
     # Center archive constellation labels and fit long names within their cells.
     def centered_slot_text(self, text, cell, y, size, color):
         if size not in self.fonts:
-            self.fonts[size] = pygame.font.SysFont('consolas', size, bold=True)
+            self.fonts[size] = pygame.font.Font(str(TEXT_FONT_PATH), size)
         label = self.fonts[size].render(text, True, color)
         if label.get_width() > cell.width - 8:
             label = pygame.transform.smoothscale(label, (cell.width - 8, label.get_height()))
@@ -327,6 +328,21 @@ class Console:
     def draw_glyph_track(self, now):
         rotation = self.track_rotation(now)
         self.last_ring_rotation = rotation
+        d = self.dialer
+        cycle_progress = d.dialing_position(now)[1]
+        if (d.state == 'dialing' and now >= d.started
+                and d.locked < len(d.sequence) and self.ring_return is None
+                and cycle_progress >= SPIN_FRACTION):
+            encoding_progress = (cycle_progress - SPIN_FRACTION) / (1 - SPIN_FRACTION)
+            # Flash the engaged tile two times, ending before the lock pause.
+            if encoding_progress < 2.2 / 2.8:
+                pulse = math.sin(math.pi * 2 * encoding_progress / (2.2 / 2.8)) ** 2
+                color = tuple(round(a + (b - a) * pulse) for a, b in zip(BG, RED))
+                angle = -90 + d.sequence[d.locked] * TILE_ANGLE + rotation
+                offsets = [TILE_ANGLE * (step / 12 - .5) for step in range(13)]
+                outline = ([polar(231, angle + offset) for offset in offsets]
+                           + [polar(211, angle + offset) for offset in reversed(offsets)])
+                pygame.draw.polygon(self.canvas, color, outline)
         for tile in range(39):
             # Boundaries straddle the top chevron when a tile is engaged.
             angle = -90 - TILE_ANGLE / 2 + tile * TILE_ANGLE + rotation
@@ -461,7 +477,7 @@ class Console:
     def draw_status_text(self, status, color, now):
         panel = pygame.Rect(358, 790, 565, 82)
         if 52 not in self.fonts:
-            self.fonts[52] = pygame.font.SysFont('consolas', 52, bold=True)
+            self.fonts[52] = pygame.font.Font(str(TEXT_FONT_PATH), 52)
         image = self.fonts[52].render(status, True, color)
         image = image.subsurface(image.get_bounding_rect()).copy()
         image = pygame.transform.smoothscale(image,
@@ -579,7 +595,7 @@ class Console:
                 pygame.draw.lines(self.canvas, color, False, route, 2)
                 closing_glyph = self.horizon_closing is not None and index < len(self.closing_glyphs)
                 self.panel(slot, RED if index < d.locked or closing_glyph else DIM)
-                self.text(index + 1, (slot.left - 25, slot.top + 3), 18, WHITE)
+                self.text(index + 1, (slot.left - 25, slot.top + 3), 20, WHITE)
                 if index < len(self.closing_glyphs) and (closing_glyph or self.slot_fade_started is not None):
                     alpha = self.slot_fade_alpha(index, now)
                     if alpha:
@@ -597,7 +613,7 @@ class Console:
             if progress < 1.34 / 2.8:
                 travel = progress / (1.34 / 2.8)
                 travel = travel * travel * (3 - 2 * travel)
-                origin = polar(239, -90)
+                origin = polar(221, -90)
                 center = (origin[0] + (CENTER[0] - origin[0]) * travel,
                           origin[1] + (CENTER[1] - origin[1]) * travel)
                 size = round(24 + 191 * travel)
@@ -629,7 +645,7 @@ class Console:
         destination_label = d.destination[:24]
         label_border = pygame.Rect(1107, 22, 133, 30)
         if 16 not in self.fonts:
-            self.fonts[16] = pygame.font.SysFont('consolas', 16, bold=True)
+            self.fonts[16] = pygame.font.Font(str(TEXT_FONT_PATH), 16)
         label_image = self.fonts[16].render(destination_label, True, WHITE)
         if label_image.get_width() > label_border.width - 12:
             label_image = pygame.transform.smoothscale(
@@ -642,9 +658,9 @@ class Console:
         self.draw_status_text(status, RED if d.state in ('connected', 'failed') else CYAN, now)
         if d.state == 'connected':
             seconds = math.ceil(d.remaining(now))
-            self.text('WORMHOLE TIMER', (235, 805), 12, YELLOW)
-            self.text(f'{seconds // 60:02}:{seconds % 60:02}', (245, 827), 24, WHITE)
-        self.text(d.message.replace('—', '/'), (358, 751), 13, YELLOW)
+            self.text('WORMHOLE TIMER', (225, 805), 12, YELLOW)
+            self.text(f'{seconds // 60:02}:{seconds % 60:02}', (248, 827), 24, WHITE)
+        self.text(d.message.replace('—', '/'), (350, 751), 13, YELLOW)
 
         idle = d.state == 'idle' and self.ring_return is None and self.horizon_closing is None and self.slot_fade_started is None
         self.button((35, 883, 182, 30), 'LOAD DESTINATION', 'load', idle)
@@ -745,7 +761,7 @@ class Console:
                     self.action(action, now)
                     break
         elif event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_RETURN:
+            if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                 self.action('dial', now)
             elif event.key == pygame.K_ESCAPE:
                 self.stop_gate(now)
@@ -1149,13 +1165,16 @@ class Console:
                         self.stop_gate(now)
                         self.command_focus = False
                     elif self.command_focus:
-                        if event.key == pygame.K_RETURN:
-                            self.execute_command(now)
+                        if event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+                            if self.command.strip():
+                                self.execute_command(now)
+                            else:
+                                self.action('dial', now)
                         elif event.key == pygame.K_BACKSPACE:
                             self.command = self.command[:-1]
                         elif event.unicode.isprintable() and len(self.command) < 45:
                             self.command += event.unicode
-                    elif event.key == pygame.K_RETURN:
+                    elif event.key in (pygame.K_RETURN, pygame.K_KP_ENTER):
                         self.action('dial', now)
                     elif event.key == pygame.K_BACKSPACE:
                         self.action('undo', now)

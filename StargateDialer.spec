@@ -10,6 +10,7 @@ a = Analysis(
     binaries=pygame_binaries,
     datas=pygame_data + [
         (str(root / 'stargate_sg1_adress_glyphs.ttf'), '.'),
+        (str(root / 'BankGothic Bold.ttf'), '.'),
         (str(root / 'media'), 'media'),
     ],
     hiddenimports=pygame_imports,

@@ -5,7 +5,7 @@ from glyph_database import glyph_letters
 
 # Shared font location and orientation corrections applied across every screen.
 FONT_PATH = Path(__file__).resolve().parent / 'stargate_sg1_adress_glyphs.ttf'
-CLOCKWISE_GLYPHS = frozenset({2, 11, 14, 15, 16, 24, 29})
+CLOCKWISE_GLYPHS = frozenset({2, 11, 14, 15, 16, 24})
 COUNTERCLOCKWISE_GLYPHS = frozenset({3, 20, 27, 35})
 
 
@@ -30,6 +30,8 @@ class Glyph:
                 surface = pygame.transform.rotate(surface, -110)
             elif glyph_id == 21:
                 surface = pygame.transform.rotate(surface, -120)
+            elif glyph_id == 29:
+                surface = pygame.transform.rotate(surface, -100)
 
             elif glyph_id in CLOCKWISE_GLYPHS:
                 surface = pygame.transform.rotate(surface, -90)
