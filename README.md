@@ -4,7 +4,8 @@ Using Python and ChatGPT's Codex to make a stargate dialing simulator.
 Will be updating whenever.
 
 Used PyGame
-"stargate_sg1_adress_glyphs.ttf" by "Joy Anne Baker" from "https://www.thescifiworld.net/fonts.htm" was used for the glyphs
+"stargate_sg1_adress_glyphs.ttf" by "Joy Anne Baker" from "https://www.thescifiworld.net/fonts.htm" was used for the glyphs.
+
 Sounds were from a fork of RafaelDeJongh's Carter's Addon pack
 
 All materials and copyright under the Stargate brand belongs to Amazon and MGM Studios.
