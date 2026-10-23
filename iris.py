@@ -34,11 +34,11 @@ class Iris:
             return
         layer = pygame.Surface((radius*2+1, radius*2+1), pygame.SRCALPHA)
         origin = (radius, radius)
-        blade_count = 16
+        blade_count = 24
         sector = math.tau/blade_count
         aperture = round(radius*(1-amount))
-        twist = -2.1
-        pygame.draw.circle(layer, (0, 0, 0, 255), origin, radius)
+        twist = -0.4
+        pygame.draw.circle(layer, (48, 48, 48, 255), origin, radius)
         # Every blade uses the exact same curve, rotated by one sector. Draw
         # shared seams once so no final polygon can cover a neighboring blade.
         for blade in range(blade_count):

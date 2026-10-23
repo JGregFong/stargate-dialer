@@ -24,7 +24,8 @@ GREEN = (127, 226, 103)
 TEXT_FONT_PATH = Path(__file__).resolve().parent / 'BankGothic Bold.ttf'
 CENTER = (640, 435)
 GATE_SCALE = 1.2
-HORIZON_RADIUS = round(201 * GATE_SCALE)
+INNER_GATE_SCALE = .975
+HORIZON_RADIUS = round(201 * GATE_SCALE * INNER_GATE_SCALE)
 # Clockwise from the top, matching the physical gate chevrons.
 CHEVRON_ANGLES = (40, 80, 120, 240, 280, 320, 160, 200)
 ORIGIN_ANGLE = 0
@@ -231,7 +232,8 @@ class Console:
         pygame.draw.rect(s, CYAN, (16, 16, 1248, 928), 2, border_radius=24)
 
         for radius, color, width in [(255, CYAN, 2), (247, DIM, 2), (232, YELLOW, 2), (210, YELLOW, 2), (203, CYAN, 2)]:
-            pygame.draw.circle(s, color, CENTER, round(radius * GATE_SCALE), width)
+            scale = INNER_GATE_SCALE if radius <= 232 else 1
+            pygame.draw.circle(s, color, CENTER, round(radius * GATE_SCALE * scale), width)
         for clockwise_angle in range(20, 360, 40):
             if clockwise_angle in (100, 180, 260):
                 continue
@@ -340,13 +342,13 @@ class Console:
                 color = tuple(round(a + (b - a) * pulse) for a, b in zip(BG, RED))
                 angle = -90 + d.sequence[d.locked] * TILE_ANGLE + rotation
                 offsets = [TILE_ANGLE * (step / 12 - .5) for step in range(13)]
-                outline = ([polar(231, angle + offset) for offset in offsets]
-                           + [polar(211, angle + offset) for offset in reversed(offsets)])
+                outline = ([polar(231 * INNER_GATE_SCALE, angle + offset) for offset in offsets]
+                           + [polar(211 * INNER_GATE_SCALE, angle + offset) for offset in reversed(offsets)])
                 pygame.draw.polygon(self.canvas, color, outline)
         for tile in range(39):
             # Boundaries straddle the top chevron when a tile is engaged.
             angle = -90 - TILE_ANGLE / 2 + tile * TILE_ANGLE + rotation
-            pygame.draw.line(self.canvas, YELLOW, polar(211, angle), polar(231, angle), 1)
+            pygame.draw.line(self.canvas, YELLOW, polar(211 * INNER_GATE_SCALE, angle), polar(231 * INNER_GATE_SCALE, angle), 1)
 
     # Feed opposite-moving number streams, then drain them after stopping.
     def draw_telemetry(self, now):
@@ -562,15 +564,15 @@ class Console:
             outer_outline = [
                 polar(250, angle - 6),
                 polar(250, angle + 6),
-                polar(218, angle + 2.5),
-                polar(218, angle - 2.5),
+                polar(250 - (250 - 218) * 1.05 * 1.03, angle + 2.5),
+                polar(250 - (250 - 218) * 1.05 * 1.03, angle - 2.5),
             ]
             # Equal-radius vertex pairs produce parallel bases and mirrored sides.
             inner_outline = [
                 polar(259, angle - 3.4),   # Wide outer base.
                 polar(259, angle + 3.4),
-                polar(228, angle + 1.25), # Narrow inner base.
-                polar(228, angle - 1.25),
+                polar(259 - (259 - 228) * 1.05 * 1.03, angle + 1.25), # Narrow inner base.
+                polar(259 - (259 - 228) * 1.05 * 1.03, angle - 1.25),
             ]
             # Trim the outer stroke before filling the inner chevron.
             vertices = outer_outline + inner_outline
@@ -613,7 +615,7 @@ class Console:
             if progress < 1.34 / 2.8:
                 travel = progress / (1.34 / 2.8)
                 travel = travel * travel * (3 - 2 * travel)
-                origin = polar(221, -90)
+                origin = polar(221 * INNER_GATE_SCALE, -90)
                 center = (origin[0] + (CENTER[0] - origin[0]) * travel,
                           origin[1] + (CENTER[1] - origin[1]) * travel)
                 size = round(24 + 191 * travel)
