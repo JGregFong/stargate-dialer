@@ -4,7 +4,7 @@
 Used PyGame and ChatGPT's Codex
 "stargate_sg1_adress_glyphs.ttf" by "Joy Anne Baker" from "https://www.thescifiworld.net/fonts.htm" was used for the glyphs.
 
-Sounds were from a fork of RafaelDeJongh's Carter's Addon pack
+Sounds were from a fork of RafaelDeJongh's Carter's Addon pack for Garry's Mod.
 
 All materials and copyright under the Stargate brand belongs to Amazon and MGM Studios.
 
