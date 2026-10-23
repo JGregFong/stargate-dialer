@@ -2,6 +2,7 @@
 <img width="1280" height="960" alt="01-idle-console" src="https://github.com/user-attachments/assets/f9fc1339-dd69-44b2-b625-b5647a66dc43" />
 
 Used PyGame and ChatGPT's Codex
+
 "stargate_sg1_adress_glyphs.ttf" by "Joy Anne Baker" from "https://www.thescifiworld.net/fonts.htm" was used for the glyphs.
 
 Sounds were from a fork of RafaelDeJongh's Carter's Addon pack for Garry's Mod.
