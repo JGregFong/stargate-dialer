@@ -1,14 +1,14 @@
 # stargate-dialer
-Using Python and ChatGPT's Codex to make a stargate dialing simulator.
+<img width="1280" height="960" alt="01-idle-console" src="https://github.com/user-attachments/assets/f9fc1339-dd69-44b2-b625-b5647a66dc43" />
 
-Will be updating whenever.
-
-Used PyGame
+Used PyGame and ChatGPT's Codex
 "stargate_sg1_adress_glyphs.ttf" by "Joy Anne Baker" from "https://www.thescifiworld.net/fonts.htm" was used for the glyphs.
 
 Sounds were from a fork of RafaelDeJongh's Carter's Addon pack
 
 All materials and copyright under the Stargate brand belongs to Amazon and MGM Studios.
+
+
 
 DISCLAIMER: 
 ChatGPT's Codex was used in the generation of code in PyGame. 
@@ -26,11 +26,14 @@ Run from this folder using the project environment:
 
 The GUI uses pygame-ce (the earlier PyQt6 note above is historical).
 
-- Click six distinct glyphs in the library. Earth is automatically appended as symbol seven.
+- Click six distinct glyphs in the glyph keyboard and then confirm with the Earth Point of Origin and Dial/Enter button.
 - Hover over a glyph to see its name. Backspace or UNDO removes the last selection.
 - Press Enter or click DIAL to start. Input is frozen while the seven symbols lock.
+- <img width="1280" height="960" alt="03-encoding-symbol" src="https://github.com/user-attachments/assets/b052ecd1-f1b5-4751-bfca-c674da2acd6a" />
 - Click LOAD DESTINATION to open the address archive. Search by destination name and/or select glyph filters (matched in any order). Scroll with the mouse wheel, Page Up/Page Down, or UP/DOWN buttons. Click a destination row to load its ordered address; CLOSE or Escape returns without loading. Restricted and inactive entries remain available for failed-connection scenarios.
+<img width="1280" height="960" alt="07-address-archive" src="https://github.com/user-attachments/assets/cb24fa98-3174-4d19-ba89-9dbe7853c751" />
 - Successful connections show ACTIVE, seven green OK indicators, an animated blue event horizon, and a 38-minute countdown.
+<img width="1280" height="960" alt="04-connected" src="https://github.com/user-attachments/assets/4c448535-784a-46e6-9d6f-6c243b4a5829" />
 - Unknown, restricted, or inactive destinations show ERROR with a dark gate center. CLEAR resets the failed attempt.
 - ESC or SHUTDOWN disengages or aborts. The bottom command field accepts `dial`, `shutdown`, `abort`, `reset`, and `help` followed by Enter.
 - The window resizes with letterboxing to preserve the console proportions.
