@@ -1,0 +1,95 @@
+name: Tests and builds
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+      PYGAME_HIDE_SUPPORT_PROMPT: "1"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --locked
+      - name: Run headless tests
+        run: uv run --locked python -m unittest discover -v
+      - name: Smoke-test preview rendering
+        run: uv run --locked main.py --preview "$RUNNER_TEMP/connected.png"
+
+  build:
+    name: Build ${{ matrix.platform }}
+    needs: test
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            platform: linux-x64
+            binary: StargateDialer
+          - os: windows-latest
+            platform: windows-x64
+            binary: StargateDialer.exe
+    env:
+      SDL_VIDEODRIVER: dummy
+      SDL_AUDIODRIVER: dummy
+      PYGAME_HIDE_SUPPORT_PROMPT: "1"
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v7
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
+        with:
+          python-version: "3.14"
+          enable-cache: true
+      - name: Install locked runtime dependencies
+        run: uv sync --locked
+      - name: Build executable
+        run: uv run --locked --with-requirements requirements-build.txt python -m PyInstaller --noconfirm --clean StargateDialer.spec
+      - name: Smoke-test executable and package artifact
+        shell: python
+        env:
+          BUILD_PLATFORM: ${{ matrix.platform }}
+          BUILD_BINARY: ${{ matrix.binary }}
+        run: |
+          import os
+          from pathlib import Path
+          import subprocess
+          import tarfile
+          import zipfile
+
+          binary = Path('dist', os.environ['BUILD_BINARY']).resolve()
+          preview = Path(os.environ['RUNNER_TEMP'], 'packaged-preview.png')
+          subprocess.run([str(binary), '--preview', str(preview)], check=True, timeout=120)
+          if not preview.is_file() or preview.stat().st_size == 0:
+              raise RuntimeError('Packaged executable did not generate its preview')
+          output = Path('dist', 'StargateDialer-' + os.environ['BUILD_PLATFORM'])
+          if os.name == 'nt':
+              with zipfile.ZipFile(str(output) + '.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
+                  archive.write(binary, arcname=binary.name)
+          else:
+              with tarfile.open(str(output) + '.tar.gz', 'w:gz') as archive:
+                  archive.add(binary, arcname=binary.name)
+      - name: Upload executable archive
+        uses: actions/upload-artifact@v7
+        with:
+          name: StargateDialer-${{ matrix.platform }}
+          path: dist/StargateDialer-${{ matrix.platform }}.*
+          if-no-files-found: error
+          retention-days: 14

@@ -62,5 +62,24 @@ class DHDAudioTimingTests(unittest.TestCase):
             a.update(d, None, now+10.81, SPIN_FRACTION)
 
 
+    def test_nondefault_rpm_chevron_cue_matches_rendered_stop(self):
+        for rpm in (2, 12, 60):
+            for behavior in ('current', 'dhd'):
+                with self.subTest(rpm=rpm, behavior=behavior):
+                    d = Dialer(rotation_rpm=rpm)
+                    d.set_behavior(behavior)
+                    d.load_destination('Abydos', 0)
+                    if behavior == 'current':
+                        d.start(0)
+                    a = self.audio()
+                    spin = d.cycle_durations()[0] - 2.8
+                    a.update(d, None, spin - .001, d.spin_fraction(spin - .001))
+                    self.assertNotIn('chevron', [c.args[0] for c in a.play.call_args_list])
+                    a.play.reset_mock()
+                    a.update(d, None, spin + .001, d.spin_fraction(spin + .001))
+                    a.play.assert_any_call('chevron', 'chevron')
+                    self.assertNotIn('roll', [c.args[0] for c in a.play.call_args_list])
+
+
 if __name__ == '__main__':
     unittest.main()

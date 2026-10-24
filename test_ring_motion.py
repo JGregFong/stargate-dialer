@@ -46,5 +46,62 @@ class RingMotionTests(unittest.TestCase):
         self.assertEqual(dialer.locked, 7)
 
 
+class SharedRPMTests(unittest.TestCase):
+    def test_nondefault_rpm_aligns_rendering_and_both_dialing_modes(self):
+        for rpm in (2, 12, 60):
+            for behavior in ('current', 'dhd'):
+                for name in ('Abydos', 'Atlantis', 'Destiny'):
+                    with self.subTest(rpm=rpm, behavior=behavior, name=name):
+                        dialer = Dialer(rotation_rpm=rpm)
+                        dialer.rotation_origin = lambda: 23.0
+                        dialer.set_behavior(behavior)
+                        dialer.load_destination(name, 0)
+                        if behavior == 'current':
+                            self.assertTrue(dialer.start(0))
+                        rotation = 23.0
+                        elapsed = 0.0
+                        for index, (delta, spin) in enumerate(rotation_steps(
+                                dialer.sequence, 23.0, rpm)):
+                            midpoint = elapsed + spin / 2
+                            self.assertAlmostEqual(abs(ring_rotation(
+                                dialer.sequence, midpoint, 10.8, True, 23.0, rpm)), rpm * 6)
+                            self.assertAlmostEqual(ring_rotation(
+                                dialer.sequence, midpoint, 10.8,
+                                initial_rotation=23.0, rpm=rpm), rotation + delta / 2)
+                            rotation += delta
+                            stop = elapsed + spin
+                            self.assertAlmostEqual(ring_rotation(
+                                dialer.sequence, stop, 10.8,
+                                initial_rotation=23.0, rpm=rpm), rotation)
+                            self.assertEqual(dialer.dialing_position(stop)[0], index)
+                            self.assertAlmostEqual(dialer.dialing_position(stop)[1],
+                                                   dialer.spin_fraction(stop))
+                            elapsed += spin + 2.8
+                            dialer.update(elapsed)
+                            self.assertEqual(dialer.locked, index + 1)
+                        self.assertEqual(dialer.state,
+                                         'ready' if behavior == 'dhd' else 'connected')
+
+    def test_dhd_resume_retains_nondefault_speed_and_stops(self):
+        dialer = Dialer(rotation_rpm=12)
+        dialer.set_behavior('dhd')
+        dialer.select(26, 10)
+        dialer.update(10 + dialer.cycle_elapsed(1))
+        self.assertEqual(dialer.state, 'dhd_wait')
+        dialer.select(6, 100)
+        self.assertEqual(dialer.dialing_position(100), (1, 0.0))
+        self.assertEqual(dialer.rotation_rpm, 12)
+        dialer.update(dialer.started + dialer.cycle_elapsed(2))
+        self.assertEqual((dialer.state, dialer.locked), ('dhd_wait', 2))
+
+    def test_invalid_rotation_speeds_are_rejected(self):
+        for rpm in (0, -1, float('nan'), float('inf')):
+            with self.subTest(rpm=rpm):
+                with self.assertRaises(ValueError):
+                    Dialer(rotation_rpm=rpm)
+                with self.assertRaises(ValueError):
+                    list(rotation_steps([1], rpm=rpm))
+
+
 if __name__ == '__main__':
     unittest.main()

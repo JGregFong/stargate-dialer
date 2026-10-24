@@ -1,4 +1,4 @@
-# Reproducible Windows single-file build. Run through build.ps1.
+# Native Windows/Linux single-file build. See README.md for build commands.
 from pathlib import Path
 from PyInstaller.utils.hooks import collect_all
 
