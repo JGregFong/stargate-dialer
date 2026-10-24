@@ -8,18 +8,18 @@ from pathlib import Path
 import pygame
 from glyph import Glyph
 from glyph_database import glyphs, address_database
-from simulator import Dialer
+from simulator import Dialer, rotation_steps, ROTATION_RAMP_SECONDS
 from gate_audio import GateAudio
 from iris import Iris
 
 # Console dimensions, palette, and shared gate geometry.
 W, H = 1280, 960
-BG = (3, 10, 16)
+BG = (0, 0, 0)
 CYAN = (65, 208, 220)
 DIM = (24, 76, 87)
 RED = (248, 65, 47)
 WHITE = (235, 246, 243)
-YELLOW = (207, 216, 147)
+YELLOW = (255, 254, 113)
 GREEN = (127, 226, 103)
 TEXT_FONT_PATH = Path(__file__).resolve().parent / 'BankGothic Bold.ttf'
 CENTER = (640, 435)
@@ -75,32 +75,33 @@ def polar(radius, angle):
 
 
 TILE_ANGLE = 360 / 39
-SPIN_FRACTION = 8 / 10.8  # Eight seconds rotating, 2.2 engaging, then a 0.6-second pause.
 
 
-# Calculate alternating rotation and matching velocity with smooth easing.
+# Ease into and out of five RPM, pausing at each centered symbol.
 def ring_rotation(sequence, elapsed, lock_seconds, velocity=False, initial_rotation=0.0):
-    """Continuous alternating travel; each stop centers its symbol's tile at top."""
     rotation = initial_rotation
-    elapsed = max(0, elapsed)
-    for index, glyph_id in enumerate(sequence):
-        direction = 1 if index % 2 == 0 else -1
-        target = -glyph_id * TILE_ANGLE
-        distance = ((target - rotation) * direction) % 360
-        if distance < 180:
-            distance += 360
-        delta = direction * distance
-        phase = (elapsed - index * lock_seconds) / lock_seconds
-        if phase <= 0:
-            return 0.0 if velocity else rotation
-        if phase < SPIN_FRACTION:
-            t = phase / SPIN_FRACTION
-            if velocity:
-                return delta * 30 * t * t * (1 - t) ** 2 / (lock_seconds * SPIN_FRACTION)
-            return rotation + delta * t ** 3 * (10 - 15 * t + 6 * t * t)
+    elapsed = max(0.0, elapsed)
+    for delta, spin_seconds in rotation_steps(sequence, initial_rotation, rpm=5):
+        if elapsed < spin_seconds:
+            speed = math.copysign(30.0, delta)
+            ramp = ROTATION_RAMP_SECONDS
+            if elapsed < ramp:
+                t = elapsed / ramp
+                current_speed = speed * t * t * (3 - 2 * t)
+                travel = speed * ramp * (t ** 3 - .5 * t ** 4)
+            elif elapsed > spin_seconds - ramp:
+                t = (spin_seconds - elapsed) / ramp
+                current_speed = speed * t * t * (3 - 2 * t)
+                travel = delta - speed * ramp * (t ** 3 - .5 * t ** 4)
+            else:
+                current_speed = speed
+                travel = speed * (elapsed - ramp / 2)
+            return current_speed if velocity else rotation + travel
         rotation += delta
-        if phase < 1:
+        elapsed -= spin_seconds
+        if elapsed < 2.8:
             return 0.0 if velocity else rotation
+        elapsed -= 2.8
     return 0.0 if velocity else rotation
 
 
@@ -123,7 +124,8 @@ class Console:
         slot_sources = [self.glyph.image(i, 215) for i in range(len(glyphs))]
         self.slot_reference_size = (max(image.get_width() for image in slot_sources),
                                     max(image.get_height() for image in slot_sources))
-        self.dialer = Dialer()
+        self.dialer = Dialer(rotation_rpm=5)
+        self.dialer.rotation_origin = lambda: self.rest_rotation
         self.iris = Iris()
         self.ring_return = None
         self.rest_rotation = 0.0
@@ -263,7 +265,7 @@ class Console:
                 self.rest_rotation = self.ring_stop_target
             return rotation
         d = self.dialer
-        elapsed = now - d.started if d.state == 'dialing' else len(d.sequence) * d.lock_seconds
+        elapsed = now - d.started if d.state == 'dialing' else d.cycle_elapsed(len(d.sequence))
         return ring_rotation(d.sequence, elapsed, d.lock_seconds, initial_rotation=self.rest_rotation)
 
     # Cancel dialing or close a connection while preserving the appropriate animation.
@@ -297,7 +299,7 @@ class Console:
 
     # Start center-out expansion using the opening sound duration.
     def begin_horizon_open(self, now):
-        self.gate_audio.update(self.dialer, self.ring_return, now, SPIN_FRACTION)
+        self.gate_audio.update(self.dialer, self.ring_return, now, self.dialer.spin_fraction(now))
         self.horizon_opening = (now, self.gate_audio.open_duration * .5)
 
     # Retain slot contents and synchronize closure with the closing sound.
@@ -306,7 +308,7 @@ class Console:
         self.closing_glyphs = self.last_connected_sequence
         self.rest_rotation = self.last_ring_rotation
         self.horizon_opening = None
-        self.gate_audio.update(self.dialer, self.ring_return, now, SPIN_FRACTION)
+        self.gate_audio.update(self.dialer, self.ring_return, now, self.dialer.spin_fraction(now))
         self.horizon_closing = (now, self.gate_audio.close_duration)
 
     # Draw the soft idle/dialing glow, completely invisible at minimum size.
@@ -331,11 +333,12 @@ class Console:
         rotation = self.track_rotation(now)
         self.last_ring_rotation = rotation
         d = self.dialer
+        spin_fraction = d.spin_fraction(now)
         cycle_progress = d.dialing_position(now)[1]
         if (d.state == 'dialing' and now >= d.started
                 and d.locked < len(d.sequence) and self.ring_return is None
-                and cycle_progress >= SPIN_FRACTION):
-            encoding_progress = (cycle_progress - SPIN_FRACTION) / (1 - SPIN_FRACTION)
+                and cycle_progress >= spin_fraction):
+            encoding_progress = (cycle_progress - spin_fraction) / (1 - spin_fraction)
             # Flash the engaged tile two times, ending before the lock pause.
             if encoding_progress < 2.2 / 2.8:
                 pulse = math.sin(math.pi * 2 * encoding_progress / (2.2 / 2.8)) ** 2
@@ -558,24 +561,23 @@ class Console:
         # Inactive bottom chevrons are drawn without a glyph-slot connection.
         for index, clockwise_angle in enumerate(active_angles + tuple(a for a in CHEVRON_ANGLES if a not in active_angles)):
             angle = clockwise_angle - 90
-            color = RED if index < illuminated_chevrons else CYAN if index >= d.symbol_count else DIM
-            # Match the inner trapezoid, with the outer top base slightly
-            # inward (lower on the top chevron) relative to the inner top base.
-            outer_outline = [
+            chevron_color = RED if index < illuminated_chevrons else CYAN if index >= d.symbol_count else YELLOW
+            # The clamp surrounds the jewel and tapers toward the gate center.
+            clamp_outline = [
                 polar(250, angle - 6),
                 polar(250, angle + 6),
-                polar(250 - (250 - 218) * 1.05 * 1.03, angle + 2.5),
-                polar(250 - (250 - 218) * 1.05 * 1.03, angle - 2.5),
+                polar(250 - (250 - 218) * 1.05 * 1.03, angle + 2.0),
+                polar(250 - (250 - 218) * 1.05 * 1.03, angle - 2.0),
             ]
             # Equal-radius vertex pairs produce parallel bases and mirrored sides.
-            inner_outline = [
+            jewel_outline = [
                 polar(259, angle - 3.4),   # Wide outer base.
                 polar(259, angle + 3.4),
                 polar(259 - (259 - 228) * 1.05 * 1.03, angle + 1.25), # Narrow inner base.
                 polar(259 - (259 - 228) * 1.05 * 1.03, angle - 1.25),
             ]
-            # Trim the outer stroke before filling the inner chevron.
-            vertices = outer_outline + inner_outline
+            # Trim the clamp outline where the jewel overlaps it.
+            vertices = clamp_outline + jewel_outline
             bounds = pygame.Rect(
                 math.floor(min(x for x, y in vertices)) - 4,
                 math.floor(min(y for x, y in vertices)) - 4,
@@ -583,18 +585,27 @@ class Console:
                 math.ceil(max(y for x, y in vertices)) - math.floor(min(y for x, y in vertices)) + 9,
             )
             layer = pygame.Surface(bounds.size, pygame.SRCALPHA)
-            local_outer = [(x - bounds.x, y - bounds.y) for x, y in outer_outline]
-            local_inner = [(x - bounds.x, y - bounds.y) for x, y in inner_outline]
-            pygame.draw.polygon(layer, (0, 0, 0, 255), local_outer)
-            pygame.draw.polygon(layer, color, local_outer, 3)
-            pygame.draw.polygon(layer, (0, 0, 0, 0), local_inner)
+            local_clamp = [(x - bounds.x, y - bounds.y) for x, y in clamp_outline]
+            local_jewel = [(x - bounds.x, y - bounds.y) for x, y in jewel_outline]
+            pygame.draw.polygon(layer, (0, 0, 0, 255), local_clamp)
+            pygame.draw.polygon(layer, chevron_color, local_clamp, 3)
+            # Six ribs on each clamp side flank the plain central jewel.
+            for stripe in range(1, 7):
+                progress = .12 + .58 * stripe / 7
+                left = pygame.Vector2(local_clamp[0]).lerp(local_clamp[3], progress)
+                right = pygame.Vector2(local_clamp[1]).lerp(local_clamp[2], progress)
+                span = right - left
+                pygame.draw.line(layer, chevron_color, left + span * .06, left + span * .28, 1)
+                pygame.draw.line(layer, chevron_color, right - span * .28, right - span * .06, 1)
+            pygame.draw.polygon(layer, (0, 0, 0, 0), local_jewel)
             self.canvas.blit(layer, bounds.topleft)
-            pygame.draw.polygon(self.canvas, (0, 0, 0), inner_outline)
-            pygame.draw.polygon(self.canvas, color, inner_outline, 2)
+            pygame.draw.polygon(self.canvas, (0, 0, 0), jewel_outline)
+            pygame.draw.polygon(self.canvas, chevron_color, jewel_outline, 2)
             if index < d.symbol_count:
                 slot = self.glyph_slot(index)
                 route = connector_route(clockwise_angle, slot, index)
-                pygame.draw.lines(self.canvas, color, False, route, 2)
+                connector_color = RED if index < illuminated_chevrons else DIM
+                pygame.draw.lines(self.canvas, connector_color, False, route, 2)
                 closing_glyph = self.horizon_closing is not None and index < len(self.closing_glyphs)
                 self.panel(slot, RED if index < d.locked or closing_glyph else DIM)
                 self.text(index + 1, (slot.left - 25, slot.top + 3), 20, WHITE)
@@ -609,9 +620,10 @@ class Console:
                 elif d.state == 'idle' and index == d.symbol_count - 1 and d.origin_selected:
                     self.draw_slot_glyph(0, slot, CYAN)
         # Three-stage glyph motion: top-to-center, center hold, then slot placement.
+        spin_fraction = d.spin_fraction(now)
         cycle_progress = d.dialing_position(now)[1]
-        if d.state == 'dialing' and now >= d.started and d.locked < d.symbol_count and cycle_progress >= SPIN_FRACTION:
-            progress = (cycle_progress - SPIN_FRACTION) / (1 - SPIN_FRACTION)
+        if d.state == 'dialing' and now >= d.started and d.locked < d.symbol_count and cycle_progress >= spin_fraction:
+            progress = (cycle_progress - spin_fraction) / (1 - spin_fraction)
             if progress < 1.34 / 2.8:
                 travel = progress / (1.34 / 2.8)
                 travel = travel * travel * (3 - 2 * travel)
@@ -710,7 +722,7 @@ class Console:
                     self.panel((335 + (count-7)*80, 19, 70, 42), GREEN)
             self.button((595, 19, 105, 42), 'UNDO', 'undo', idle and bool(d.selected))
             self.button((710, 19, 105, 42), 'CLEAR', 'clear', idle or d.state == 'failed')
-            self.button((825, 19, 155, 42), 'DIAL / ENTER', 'dial', d.state in ('dialing', 'ready') and len(d.sequence) == d.symbol_count and not d.activation_requested if d.behavior == 'dhd' else idle and len(d.selected) == d.symbol_count - 1)
+            self.button((825, 19, 155, 42), 'ACTIVATE', 'dial', d.state in ('dialing', 'ready') and len(d.sequence) == d.symbol_count and not d.activation_requested if d.behavior == 'dhd' else idle and len(d.selected) == d.symbol_count - 1)
             self.button((990, 19, 215, 42), 'SHUTDOWN / ESC', 'shutdown', d.state != 'idle')
             self.hover = None
             for glyph_id in range(1, 39):
@@ -1180,7 +1192,7 @@ class Console:
                         self.action('dial', now)
                     elif event.key == pygame.K_BACKSPACE:
                         self.action('undo', now)
-            self.gate_audio.update(self.dialer, self.ring_return, now, SPIN_FRACTION)
+            self.gate_audio.update(self.dialer, self.ring_return, now, self.dialer.spin_fraction(now))
             # Reacquire the surface each frame because resizing can replace it.
             surface = self.window.get_surface()
             surface.fill((0, 0, 0))
@@ -1200,7 +1212,7 @@ if __name__ == '__main__':
         app.mouse = (-1, -1)
         app.dialer.selected = address_database['Abydos']['Address'][:]
         app.dialer.start(0)
-        preview_time = 7 * app.dialer.lock_seconds
+        preview_time = app.dialer.cycle_elapsed(len(app.dialer.sequence))
         app.dialer.update(preview_time)
         app.draw(preview_time)
         pygame.image.save(app.canvas, str(args.preview))

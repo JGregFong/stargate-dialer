@@ -115,6 +115,7 @@ class GateAudio:
 
     # Synchronize roll, chevrons, activation, shutdown, and failure with gate state.
     def update(self, dialer, ring_return, now, spin_fraction):
+        spin_fraction = dialer.spin_fraction(now)
         state = dialer.state
         returning = ring_return is not None
         self.update_computer(dialer, returning, now, spin_fraction)

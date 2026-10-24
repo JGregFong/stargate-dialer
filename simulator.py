@@ -1,11 +1,29 @@
 """Time-based dialing logic, independent of Pygame."""
 from glyph_database import address_database
 
+ROTATION_RAMP_SECONDS = 1.5
+
+
+def rotation_steps(sequence, initial_rotation=0.0, rpm=5):
+    """Return signed travel and spin duration for each alternating symbol stop."""
+    rotation = initial_rotation
+    for index, glyph in enumerate(sequence):
+        direction = 1 if index % 2 == 0 else -1
+        distance = ((-glyph * 360 / 39 - rotation) * direction) % 360
+        if distance < 180:
+            distance += 360
+        delta = direction * distance
+        # Each smooth speed ramp covers half the distance of full-speed travel.
+        yield delta, distance / (rpm * 6) + ROTATION_RAMP_SECONDS
+        rotation += delta
+
 
 class Dialer:
     # Initialize pure dialing state and configurable cycle and connection timing.
-    def __init__(self, lock_seconds=10.8, connection_seconds=38 * 60):
+    def __init__(self, lock_seconds=10.8, connection_seconds=38 * 60, rotation_rpm=None):
         self.lock_seconds = lock_seconds
+        self.rotation_rpm = rotation_rpm
+        self.rotation_origin = lambda: 0.0
         self.connection_seconds = connection_seconds
         self.dial_id = 0
         self.behavior = 'current'
@@ -72,7 +90,7 @@ class Dialer:
             self.sequence.append(glyph)
             if self.state in ('idle', 'dhd_wait'):
                 # Rebase the timeline to resume at the next unencoded symbol.
-                self.started = now - self.locked * self.lock_seconds
+                self.started = now - self.cycle_elapsed(self.locked)
                 self.state = 'dialing'
             self.message = 'DHD / ENCODING SELECTED GLYPHS'
         return True
@@ -108,9 +126,32 @@ class Dialer:
         return True
 
     # Keep animation and audio on the same floating-point-safe cycle boundary.
+    def cycle_durations(self):
+        if self.rotation_rpm is None:
+            return [self.lock_seconds] * len(self.sequence)
+        return [spin + 2.8 for _, spin in rotation_steps(
+            self.sequence, self.rotation_origin(), self.rotation_rpm)]
+
+    def cycle_elapsed(self, count):
+        return sum(self.cycle_durations()[:count])
+
+    def spin_fraction(self, now):
+        if self.rotation_rpm is None or not self.sequence:
+            return 8 / 10.8
+        index = min(self.dialing_position(now)[0], len(self.sequence) - 1)
+        duration = self.cycle_durations()[index]
+        return (duration - 2.8) / duration
+
     def dialing_position(self, now):
         """One shared, boundary-safe cycle clock for animation and sound."""
         elapsed = max(0.0, now-self.started)
+        if self.rotation_rpm is not None:
+            durations = self.cycle_durations()
+            for index, duration in enumerate(durations):
+                if elapsed < duration - 1e-7:
+                    return index, max(0.0, elapsed) / duration
+                elapsed -= duration
+            return len(durations), 0.0
         nearest = round(elapsed/self.lock_seconds)
         if abs(elapsed-nearest*self.lock_seconds) < 1e-7:
             return nearest, 0.0
