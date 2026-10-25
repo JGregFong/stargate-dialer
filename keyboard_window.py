@@ -56,7 +56,7 @@ class GlyphKeyboard:
         self.ui.button((595, 19, 105, 42), 'UNDO', 'undo', idle and bool(d.selected))
         self.ui.button((710, 19, 105, 42), 'CLEAR', 'clear', idle or d.state == 'failed')
         self.ui.button((825, 19, 155, 42), 'ACTIVATE', 'dial', d.state in ('dialing', 'ready') and len(d.sequence) == d.symbol_count and not d.activation_requested if d.behavior == 'dhd' else idle and len(d.selected) == d.symbol_count - 1)
-        self.ui.button((990, 19, 215, 42), 'SHUTDOWN / ESC', 'shutdown', d.state != 'idle')
+        self.ui.button((990, 19, 215, 42), 'SHUTDOWN / ESC', 'shutdown', d.state != 'idle' and d.offworld is None)
         self.hover = None
         for glyph_id in range(1, 39):
             index = glyph_id - 1
@@ -75,7 +75,7 @@ class GlyphKeyboard:
         self.ui.button((760, 201, 445, 28),
                     ('[X] ' if d.behavior == 'dhd' else '[ ] ') + 'DHD DIALING',
                     'toggle_dialing', mode_editable)
-        self.ui.button((595, 201, 145, 28), 'IRIS', 'iris')
+        self.ui.button((595, 201, 145, 28), 'IRIS', 'iris', d.offworld is None or d.offworld.kind != 'friendly_wo')
         if self.iris.target_closed:
             self.ui.panel((595, 201, 145, 28), GREEN)
         self.keyboard_buttons = self.ui.buttons[:]

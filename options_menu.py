@@ -30,6 +30,9 @@ class OptionsMenu:
             selected = self.settings.glyph_sound_mode == mode
             self.ui.button((320 + index*210, 535, 200, 42),
                         ('[X] ' if selected else '[ ] ') + label, ('glyph_sound', mode))
+        self.ui.button((320, 595, 630, 38),
+                       ('[X] ' if self.settings.offworld_enabled else '[ ] ') + 'ENABLE OFFWORLD ACTIVATION SCENARIOS',
+                       'toggle_offworld')
         self.ui.button((320, 650, 150, 42), 'CLOSE / ESC', 'options_close')
         self.ui.button((580, 650, 370, 42),
                     ('[X] ' if self.gate_audio.computer_enabled else '[ ] ') + 'COMPUTER ENCODING SOUNDS',
@@ -45,7 +48,9 @@ class OptionsMenu:
                               (event.pos[1]-viewport.y)*H/viewport.height)
             for rect, action, enabled in self.ui.buttons:
                 if enabled and rect.collidepoint(self.ui.mouse):
-                    if action == 'options_close':
+                    if action == 'toggle_offworld':
+                        self.settings.offworld_enabled = not self.settings.offworld_enabled
+                    elif action == 'options_close':
                         self.options_open = False
                     elif action == 'toggle_computer_sounds':
                         self.gate_audio.set_computer_enabled(not self.gate_audio.computer_enabled)

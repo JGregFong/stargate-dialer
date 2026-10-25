@@ -287,12 +287,15 @@ class ConsoleRenderer:
         self.update_slot_fade(now)
         self.iris.draw(self.ui.canvas, CENTER, HORIZON_RADIUS, now, YELLOW)
         illuminated_chevrons = len(self.visual.closing_glyphs) if self.visual.horizon_closing is not None else d.locked
+        event = d.offworld
+        recognized = event is not None and event.recognition(now) >= 1
+        incoming_color = GREEN if recognized else RED
         # Gate chevrons, exterior connections, and address slot contents.
         active_angles = dialing_angles(d.symbol_count)
         # Inactive bottom chevrons are drawn without a glyph-slot connection.
         for index, clockwise_angle in enumerate(active_angles + tuple(a for a in CHEVRON_ANGLES if a not in active_angles)):
             angle = clockwise_angle - 90
-            chevron_color = RED if index < illuminated_chevrons else CYAN if index >= d.symbol_count else YELLOW
+            chevron_color = incoming_color if index < illuminated_chevrons else CYAN if index >= d.symbol_count else YELLOW
             # The clamp surrounds the jewel and tapers toward the gate center.
             clamp_outline = [
                 polar(250, angle - 6),
@@ -335,15 +338,22 @@ class ConsoleRenderer:
             if index < d.symbol_count:
                 slot = self.glyph_slot(index)
                 route = connector_route(clockwise_angle, slot, index)
-                connector_color = RED if index < illuminated_chevrons else DIM
+                connector_color = incoming_color if index < illuminated_chevrons else DIM
                 pygame.draw.lines(self.ui.canvas, connector_color, False, route, 2)
                 closing_glyph = self.visual.horizon_closing is not None and index < len(self.visual.closing_glyphs)
                 self.ui.panel(slot, RED if index < d.locked or closing_glyph else DIM)
                 self.ui.text(index + 1, (slot.left - 25, slot.top + 3), 20, WHITE)
-                if index < len(self.visual.closing_glyphs) and (closing_glyph or self.visual.slot_fade_started is not None):
+                if event is not None and index < d.locked:
+                    pygame.draw.rect(self.ui.canvas, incoming_color, slot)
+                elif index < len(self.visual.closing_glyphs) and (closing_glyph or self.visual.slot_fade_started is not None):
                     alpha = self.slot_fade_alpha(index, now)
                     if alpha:
-                        self.draw_slot_glyph(self.visual.closing_glyphs[index], slot, alpha=alpha)
+                        if self.visual.closing_glyphs[index] is None:
+                            fill = pygame.Surface(slot.size, pygame.SRCALPHA)
+                            fill.fill((*RED, alpha))
+                            self.ui.canvas.blit(fill, slot)
+                        else:
+                            self.draw_slot_glyph(self.visual.closing_glyphs[index], slot, alpha=alpha)
                 elif index < d.locked:
                     self.draw_slot_glyph(d.sequence[index], slot)
                 elif d.state == 'idle' and index < len(d.selected):
@@ -397,10 +407,12 @@ class ConsoleRenderer:
                 label_image, (label_border.width - 12, label_image.get_height()))
         self.ui.panel(label_border, CYAN)
         self.ui.canvas.blit(label_image, label_image.get_rect(center=label_border.center))
-        status = {'idle': 'IDLE', 'dialing': 'DIALING', 'connected': 'ACTIVE', 'failed': 'ERROR', 'dhd_wait': 'INPUT', 'ready': 'READY', 'activating': 'WAIT'}[d.state]
+        status = {'incoming': 'INCOMING', 'idle': 'IDLE', 'dialing': 'DIALING', 'connected': 'ACTIVE', 'failed': 'ERROR', 'dhd_wait': 'INPUT', 'ready': 'READY', 'activating': 'WAIT'}[d.state]
         if self.visual.horizon_closing is not None:
             status = 'CLOSING'
-        self.draw_status_text(status, RED if d.state in ('connected', 'failed') else CYAN, now)
+        if recognized:
+            status = 'signal recognized'
+        self.draw_status_text(status, GREEN if recognized else RED if d.state in ('connected', 'failed') else CYAN, now)
         if d.state == 'connected':
             seconds = math.ceil(d.remaining(now))
             self.ui.text('WORMHOLE TIMER', (225, 805), 12, YELLOW)
@@ -413,7 +425,34 @@ class ConsoleRenderer:
         self.ui.text('> ' + self.input_state.text + ('_' if self.input_state.focused else '  [click: help / dial NAME / shutdown]'), (605, 900), 13, WHITE)
         self.ui.button((35, 86, 182, 24), 'OPTIONS', 'options')
         self.ui.button((245, 883, 215, 30), 'GLYPH KEYBOARD', 'keyboard')
+        self.draw_offworld_notification(now)
         if self.archive.archive_open:
             self.archive.draw_archive()
         elif self.options.options_open:
             self.options.draw_options()
+
+    def draw_offworld_notification(self, now):
+        event = self.dialer.offworld
+        if event is None:
+            return
+        waveform = event.kind == 'friendlygdo' and now >= event.established_at + 3
+        box = pygame.Rect(370, 310, 540, 235 if waveform else 110)
+        pygame.draw.rect(self.ui.canvas, BG, box)
+        pygame.draw.rect(self.ui.canvas, CYAN, box, 3)
+        self.ui.text(event.notification(now), (390, 328), 22, CYAN)
+        if waveform:
+            area = pygame.Rect(390, 373, 500, 112)
+            pygame.draw.rect(self.ui.canvas, CYAN, area, 2)
+            points = []
+            for i in range(125):
+                amplitude = (math.sin(i*2.31 + now*7) * math.sin(i*.73-now*3)
+                             + .3*math.sin(i*4.9+now*11)) * 35
+                points.append((area.left+5+i*3.95, area.centery+amplitude))
+            pygame.draw.lines(self.ui.canvas, RED, False, points, 2)
+            clip = self.ui.canvas.get_clip()
+            self.ui.canvas.set_clip(pygame.Rect(area.left, area.top, round(area.width*event.recognition(now)), area.height))
+            pygame.draw.lines(self.ui.canvas, GREEN, False, points, 2)
+            self.ui.canvas.set_clip(clip)
+            recognized = event.recognition(now) >= 1
+            self.ui.text('signal recognized' if recognized else 'RECEIVING IDC TRANSMISSION',
+                         (390, 505), 20, GREEN if recognized else RED)

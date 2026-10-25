@@ -44,7 +44,8 @@ class Console:
         self.commands = ConsoleCommands(dialer=self.dialer, visual=self.visual,
                                        input_state=self.input, iris=self.iris,
                                        action=self.action, stop_gate=self.stop_gate,
-                                       reset_gate=self.reset_gate, set_iris=self.set_iris)
+                                       reset_gate=self.reset_gate, set_iris=self.set_iris,
+                                       start_offworld=self.start_offworld)
         self.keyboard = GlyphKeyboard(
             glyph=self.ui.glyph, dialer=self.dialer, visual=self.visual, iris=self.iris,
             window=self.window, action=self.action, stop_gate=self.stop_gate,
@@ -99,6 +100,20 @@ class Console:
         if self.button_channel is not None and sound is not None:
             self.button_channel.play(sound)
 
+    def start_offworld(self, kind, now):
+        from scenarios import TYPES
+        if not self.settings.offworld_enabled:
+            self.dialer.message = 'ENABLE OFFWORLD ACTIVATION SCENARIOS IN OPTIONS'
+            return
+        if kind not in TYPES:
+            self.dialer.message = 'UNKNOWN OFFWORLD TYPE / unknown hostile friendlygdo friendly_wo'
+            return
+        if self.visual.busy or not self.dialer.begin_offworld(kind, now):
+            self.dialer.message = 'GATE BUSY / OFFWORLD ACTIVATION UNAVAILABLE'
+            return
+        if kind == 'friendly_wo':
+            self.set_iris(False, now, force=True)
+
     # Combine normal dialing motion with a smooth interrupted-dial stop.
     def track_rotation(self, now):
         if self.visual.ring_return is not None:
@@ -118,11 +133,16 @@ class Console:
                 self.visual.rest_rotation = self.visual.ring_stop_target
             return rotation
         d = self.dialer
+        if d.offworld is not None:
+            elapsed = min(max(0, now-d.started), 10.5)
+            return self.visual.rest_rotation + elapsed * 30
         elapsed = now - d.started if d.state == 'dialing' else d.cycle_elapsed(len(d.sequence))
         return ring_rotation(d.sequence, elapsed, d.lock_seconds, initial_rotation=self.visual.rest_rotation, rpm=d.rotation_rpm)
 
     # Cancel dialing or close a connection while preserving the appropriate animation.
     def stop_gate(self, now):
+        if self.dialer.offworld is not None:
+            return
         was_connected = self.dialer.state == 'connected'
         if was_connected:
             self.visual.last_connected_sequence = tuple(self.dialer.sequence)
@@ -222,7 +242,9 @@ class Console:
             self.archive.archive_scroll = 0
 
     # Iris state is independent of dialing and remains in place after shutdown.
-    def set_iris(self, closed, now):
+    def set_iris(self, closed, now, force=False):
+        if not force and self.dialer.offworld is not None and self.dialer.offworld.kind == 'friendly_wo':
+            return
         if bool(closed) == self.iris.target_closed:
             return
         cue = 'iris_close' if closed else 'iris_open'
@@ -255,6 +277,7 @@ class Console:
             previous_state = self.dialer.state
             if previous_state == 'connected':
                 self.visual.last_connected_sequence = tuple(self.dialer.sequence)
+            self.dialer.update_offworld(now, self.iris.amount(now) <= .0001)
             self.dialer.update(now)
             self.play_pending_activation_sound()
             if previous_state != 'connected' and self.dialer.state == 'connected':
