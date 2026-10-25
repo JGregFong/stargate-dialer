@@ -146,6 +146,7 @@ class Console:
         was_connected = self.dialer.state == 'connected'
         if was_connected:
             self.visual.last_connected_sequence = tuple(self.dialer.sequence)
+            self.visual.last_connected_offworld = self.dialer.offworld
         if self.dialer.state in ('dialing', 'dhd_wait', 'ready', 'activating'):
             rotation = self.track_rotation(now)
             speed = ring_rotation(
@@ -185,6 +186,7 @@ class Console:
     def begin_horizon_close(self, now):
         self.visual.slot_fade_started = None
         self.visual.closing_glyphs = self.visual.last_connected_sequence
+        self.visual.closing_offworld = self.visual.last_connected_offworld
         self.visual.rest_rotation = self.visual.last_ring_rotation
         self.visual.horizon_opening = None
         self.gate_audio.update(self.dialer, self.visual.ring_return, now, self.dialer.spin_fraction(now))
@@ -277,6 +279,7 @@ class Console:
             previous_state = self.dialer.state
             if previous_state == 'connected':
                 self.visual.last_connected_sequence = tuple(self.dialer.sequence)
+                self.visual.last_connected_offworld = self.dialer.offworld
             self.dialer.update_offworld(now, self.iris.amount(now) <= .0001)
             self.dialer.update(now)
             self.play_pending_activation_sound()

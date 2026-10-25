@@ -123,3 +123,40 @@ class UIComponentTests(unittest.TestCase):
         self.assertAlmostEqual(app.track_rotation(now), expected)
         app.dialer.set_behavior('dhd')
         self.assertEqual(app.dialer.rotation_rpm, 12)
+
+    def test_incoming_indicators_persist_without_outgoing_slot_fade(self):
+        from ui_geometry import GREEN, RED
+        app = self.app
+        for kind in ('friendlygdo', 'friendly_wo', 'unknown', 'hostile'):
+            with self.subTest(kind=kind):
+                self.assertTrue(app.dialer.begin_offworld(kind, 0))
+                opened = app.dialer.offworld.established_at
+                app.dialer.update_offworld(opened + 9, True)
+                app.renderer.draw(opened + 9)
+                slot = app.renderer.glyph_slot(0)
+                color = GREEN if kind.startswith('friendly') else RED
+                self.assertEqual(tuple(app.ui.canvas.get_at(slot.center))[:3], color)
+                app.visual.last_connected_sequence = tuple(app.dialer.sequence)
+                app.visual.last_connected_offworld = app.dialer.offworld
+                shutdown = opened + 20
+                app.dialer.update_offworld(shutdown, True)
+                app.begin_horizon_close(shutdown)
+                app.renderer.draw(shutdown + .01)
+                self.assertEqual(tuple(app.ui.canvas.get_at(slot.center))[:3], color)
+                app.renderer.draw(shutdown + app.gate_audio.close_duration + .01)
+                self.assertIsNone(app.visual.slot_fade_started)
+                self.assertIsNone(app.visual.closing_offworld)
+                self.assertEqual(app.visual.closing_glyphs, ())
+                self.assertFalse(app.visual.busy)
+
+    def test_outgoing_shutdown_retains_glyph_fade(self):
+        app = self.app
+        app.dialer.load_destination('Abydos')
+        app.dialer.start(0)
+        now = app.dialer.cycle_elapsed(7)
+        app.dialer.update(now)
+        self.assertEqual(app.dialer.state, 'connected')
+        app.stop_gate(now)
+        app.renderer.draw(now + app.gate_audio.close_duration + .01)
+        self.assertIsNotNone(app.visual.slot_fade_started)
+        self.assertTrue(app.visual.closing_glyphs)
