@@ -1,8 +1,13 @@
 # Changelog
 
-## 2026-10-24
+## v1.1.0 — 2026-10-24
 
 ### Changed
+
+- Inject explicit UI resources, state objects, and callbacks into components instead of passing Console; remove its compatibility properties and forwarding methods.
+- Give the main window and keyboard independent drawing contexts; move renderer caches and UI settings to their owning objects.
+- Bound interrupted-dial braking to 2.5 seconds and preserve the final ring position when clearing, resetting, shutting down, or redialing after a failed address.
+- Add regression coverage for early aborts, failed-address resets, isolated view construction, and the main event loop.
 
 - Share configurable RPM across computer/DHD dialing, ring rendering, and abort braking through common motion calculations; add the `--rpm` launch option.
 - Shorten acceleration ramps for fast moves so rendering still stops at the selected symbol.

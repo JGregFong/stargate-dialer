@@ -171,8 +171,23 @@ actions, and routes the main event loop. It composes these UI components:
 | `options_menu.py` | Options menu rendering and interaction. |
 | `console_commands.py` | Parsing and dispatching console commands. |
 | `console_renderer.py` | Main console drawing, telemetry, glyph placement, and visual effects. |
+| `drawing_context.py` | Window-local canvas, font cache, mouse position, drawing helpers, and button hit targets. |
+| `view_state.py` | Explicit gate-animation state, UI settings, and command-input state. |
 | `ui_geometry.py` | Shared dimensions, palette, and gate geometry. |
 | `ring_motion.py` | Shared default RPM, acceleration ramps, symbol travel durations, and ring position/velocity. |
+
+UI components receive their resources and action callbacks through keyword-only
+constructor arguments; they do not receive a `Console` reference. The main window
+and glyph keyboard have separate `DrawingContext` instances, so keyboard rendering
+never replaces the main window's canvas or input targets. The renderer owns its
+cached gate frame, event horizon, and slot sizing resources.
+
+Code using the UI should call the owning component directly, for example
+`app.renderer.draw(now)`, `app.keyboard.open_keyboard()`, and
+`app.commands.execute_command(now)`. Drawing state is under `app.ui`, animation
+state under `app.visual`, settings under `app.settings`, and command text/focus
+under `app.input`. The former Console compatibility properties and forwarding
+methods have been removed. The `Dialer` interface and user controls are unchanged.
 
 `simulator.Dialer` is the public simulation interface used by the UI and audio.
 Its supporting modules have no Pygame dependency:

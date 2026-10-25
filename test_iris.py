@@ -37,22 +37,22 @@ class IrisControlTests(unittest.TestCase):
         app = Console()
         try:
             app.gate_audio.play = Mock(return_value=2)
-            app.command = 'IRIS CLOSE'
-            app.execute_command(10)
+            app.input.text = 'IRIS CLOSE'
+            app.commands.execute_command(10)
             self.assertTrue(app.iris.target_closed)
             app.gate_audio.play.assert_called_once_with('iris_close', 'iris')
-            app.command = 'iris close'
-            app.execute_command(11)
+            app.input.text = 'iris close'
+            app.commands.execute_command(11)
             self.assertEqual(app.gate_audio.play.call_count, 1)
-            app.command = 'iris open'
-            app.execute_command(12)
+            app.input.text = 'iris open'
+            app.commands.execute_command(12)
             app.gate_audio.play.assert_called_with('iris_open', 'iris')
             app.action('iris', 13)
             self.assertTrue(app.iris.target_closed)
             app.stop_gate(14)
             self.assertTrue(app.iris.target_closed)
-            app.command = 'iris nonsense'
-            app.execute_command(15)
+            app.input.text = 'iris nonsense'
+            app.commands.execute_command(15)
             self.assertIn('USAGE', app.dialer.message)
         finally:
             pygame.quit()

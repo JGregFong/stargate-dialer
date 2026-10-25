@@ -1,7 +1,7 @@
 """Check five-RPM travel, symbol alignment, and synchronized encoding."""
 import unittest
 
-from main import ring_rotation
+from ring_motion import ring_rotation
 from simulator import Dialer, rotation_steps
 
 

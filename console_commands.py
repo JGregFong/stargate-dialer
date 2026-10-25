@@ -3,26 +3,33 @@ from glyph_database import address_database
 
 
 class ConsoleCommands:
-    def __init__(self, console):
-        self.console = console
+    def __init__(self, *, dialer, visual, input_state, iris, action, stop_gate, reset_gate, set_iris):
+        self.dialer = dialer
+        self.visual = visual
+        self.input_state = input_state
+        self.iris = iris
+        self.action = action
+        self.stop_gate = stop_gate
+        self.reset_gate = reset_gate
+        self.set_iris = set_iris
 
     def execute_command(self, now):
-        parts = self.console.command.strip().split(maxsplit=1)
+        parts = self.input_state.text.strip().split(maxsplit=1)
         verb = parts[0].casefold() if parts else ''
-        d = self.console.dialer
+        d = self.dialer
         if verb in ('shutdown', 'abort') and len(parts) == 1:
-            self.console.stop_gate(now)
+            self.stop_gate(now)
         elif verb == 'reset' and len(parts) == 1 and d.state in ('idle', 'failed'):
-            d.reset()
+            self.reset_gate(now)
         elif verb == 'iris':
             argument = parts[1].strip().casefold() if len(parts) > 1 else ''
             if argument in ('', 'open', 'close'):
-                closed = not self.console.iris.target_closed if not argument else argument == 'close'
-                self.console.set_iris(closed, now)
+                closed = not self.iris.target_closed if not argument else argument == 'close'
+                self.set_iris(closed, now)
             else:
                 d.message = 'USAGE: IRIS / IRIS OPEN / IRIS CLOSE'
         elif verb == 'start' and len(parts) == 1:
-            self.console.action('dial', now)
+            self.action('dial', now)
         elif verb == 'dial':
             if len(parts) < 2:
                 d.message = 'USAGE: DIAL <DESTINATION NAME> / EXAMPLE: DIAL ATLANTIS'
@@ -35,15 +42,15 @@ class ConsoleCommands:
                              if ' '.join(name.split()).casefold() == normalized), None)
                 if name is None:
                     d.message = 'UNKNOWN DESTINATION / SEARCH THE ADDRESS ARCHIVE'
-                elif d.state not in ('idle', 'failed') or self.console.ring_return is not None or self.console.horizon_closing is not None or self.console.slot_fade_started is not None:
+                elif d.state not in ('idle', 'failed') or self.visual.busy:
                     d.message = 'GATE BUSY / SHUTDOWN BEFORE DIALING ANOTHER ADDRESS'
                 else:
                     if d.state == 'failed':
-                        d.reset()
+                        self.reset_gate(now)
                     # Loading chooses address length. DHD queues activation while
                     # current mode starts its normal complete-address sequence.
                     if d.load_destination(name, now):
-                        self.console.action('dial', now)
+                        self.action('dial', now)
         else:
             d.message = 'COMMANDS: START / DIAL <NAME> / IRIS [OPEN/CLOSE] / SHUTDOWN / RESET'
-        self.console.command = ''
+        self.input_state.text = ''
