@@ -1,6 +1,6 @@
 [project]
 name = "stargate-dialer"
-version = "0.1.0"
+version = "1.1.1"
 requires-python = ">=3.14"
 dependencies = [
     "pygame-ce>=2.5.7",

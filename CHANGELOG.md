@@ -1,5 +1,12 @@
 # Changelog
 
+## v1.1.1 — 2026-10-24
+
+### Changed
+
+- Correct Destiny's third address glyph from 15 to 20 in both address mappings, based on the included SGU production notes.
+- Include the SGU production reference image and align package metadata with version 1.1.1.
+
 ## v1.1.0 — 2026-10-24
 
 ### Changed
