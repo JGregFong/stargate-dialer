@@ -3,7 +3,8 @@ from glyph_database import address_database
 
 
 class ConsoleCommands:
-    def __init__(self, *, dialer, visual, input_state, iris, action, stop_gate, reset_gate, set_iris):
+    def __init__(self, *, dialer, visual, input_state, iris, action, stop_gate, reset_gate, set_iris, start_offworld=None):
+        self.start_offworld = start_offworld
         self.dialer = dialer
         self.visual = visual
         self.input_state = input_state
@@ -17,7 +18,13 @@ class ConsoleCommands:
         parts = self.input_state.text.strip().split(maxsplit=1)
         verb = parts[0].casefold() if parts else ''
         d = self.dialer
-        if verb in ('shutdown', 'abort') and len(parts) == 1:
+        if verb == 'debug':
+            args = parts[1].casefold().split() if len(parts) > 1 else []
+            if len(args) == 2 and args[0] == 'offworld' and self.start_offworld:
+                self.start_offworld(args[1], now)
+            else:
+                d.message = 'USAGE: DEBUG OFFWORLD unknown/hostile/friendlygdo/friendly_wo'
+        elif verb in ('shutdown', 'abort') and len(parts) == 1:
             self.stop_gate(now)
         elif verb == 'reset' and len(parts) == 1 and d.state in ('idle', 'failed'):
             self.reset_gate(now)

@@ -32,6 +32,7 @@ class GateAudio:
             ('roll', 'chevron', 'effect', 'wormhole', 'computer', 'computer_beep', 'iris'), 1)}
         directory = Path(__file__).resolve().parent / 'media' / 'sounds' / 'stargate'
         files = {
+            'incoming_chevron': tuple(f'chev_usual_{i}.wav' for i in range(1, 8)),
             'roll': ('roll.wav',),
             'chevron': ('sgc_chevron.mp3', 'sgc_chevron2.mp3'),
             'final_chevron': ('chevron_lock.mp3',),
@@ -129,6 +130,13 @@ class GateAudio:
         if returning:
             # Keep an already playing roll uninterrupted across an abort.
             spin_key = self.spin_key or ('return', ring_return[0])
+        elif dialer.offworld is not None:
+            if state == 'incoming' and dialer.locked < 7:
+                spin_key = ('incoming', dialer.dial_id)
+            token = (dialer.dial_id, dialer.locked)
+            if dialer.locked and self.engaged != token:
+                self.play('incoming_chevron', 'chevron')
+                self.engaged = token
         elif state == 'dialing' and now >= dialer.started:
             index, phase = dialer.dialing_position(now)
             index = min(len(dialer.sequence)-1, index)
