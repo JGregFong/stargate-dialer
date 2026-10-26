@@ -48,7 +48,12 @@ console contains the gate, address slots, diagnostics, status, command field,
 
 The keyboard provides Earth (0), destination glyphs 1–38, **7 SYM / 8 SYM /
 9 SYM**, **UNDO**, **CLEAR**, **ACTIVATE**, **SHUTDOWN / ESC**, **IRIS**, and the
-**DHD DIALING** toggle. Hover over a destination glyph to see its name.
+**DHD** toggle, and **SPEED** button. Hover over a destination glyph to see its name.
+
+Across the keyboard, Options, and archive, selected controls use a green outline
+and fill. Hover brightens an available control; disabled controls use muted text
+and do not respond to hover or clicks. Selected settings stay visibly marked
+when temporarily locked. Button labels are centered and fitted to their bounds.
 
 Address length includes the final Earth Point of Origin:
 
@@ -71,7 +76,10 @@ adds it automatically in computer mode. **UNDO** or Backspace removes Earth firs
 if selected, otherwise the last destination glyph. Input is frozen during dialing.
 
 The ring alternates direction and cruises at 5 RPM by default. Use
-`uv run main.py --rpm 8` to select another positive speed. One RPM setting applies
+`uv run main.py --rpm 8` to select another positive speed. The keyboard's **SPEED**
+button cycles through **5 → 10 → 15 → 5 RPM** without clearing the loaded address.
+It is available while idle or after a failed attempt and disabled during dialing
+and gate animations. One RPM setting applies
 to computer dialing, DHD queue/resume, ring rendering, and abort braking; encoding
 and audio timing follow the same motion calculation. Acceleration and braking
 ramps last up to 1.5 seconds, shortened for fast moves with insufficient travel. Travel time depends on the angular distance to each symbol.
@@ -80,7 +88,8 @@ the top chevron to the center, pauses, then shrinks into its address slot.
 
 ### DHD dialing
 
-Toggle **DHD DIALING** in the glyph keyboard while idle or after a failed attempt.
+Toggle **DHD** in the glyph keyboard while idle or after a failed attempt.
+The enabled toggle has a green outline and fill.
 Changing behavior clears the entry. The toggle is disabled during encoding,
 waiting for more input or activation, connection, braking, and closure.
 
@@ -101,8 +110,10 @@ A successful connection displays **ACTIVE**, a green OK indicator per locked
 symbol, a procedural blue event horizon, and a 38-minute countdown. The timer
 starts when the connection is established and automatically disengages at expiry.
 
-Unknown, restricted, and inactive addresses display **ERROR**. **CLEAR** resets a
-failed attempt. **SHUTDOWN / ESC** or Escape aborts dialing or closes a connection;
+Unknown, restricted, and inactive addresses play the failure cue and immediately
+reset the gate to **IDLE**, clearing the address and chevrons. The failure reason
+remains in the message line, and a new address can be entered immediately.
+**SHUTDOWN / ESC** or Escape aborts dialing or closes a connection;
 the console animates braking or closure as appropriate.
 
 ## Address archive
@@ -158,6 +169,11 @@ target does not replay the sound; reversing motion preserves the aperture size.
 press sounds, and computer encoding sound controls. Silent glyph press mode
 suppresses individual glyph clicks; activation retains its separate dial cue.
 DHD behavior is controlled in the keyboard window.
+
+The **MASTER VOLUME** slider adjusts all keyboard, gate, computer, and iris
+sounds immediately, including loops already playing. Click or drag to select
+0–100%; 0% mutes all audio. Volume defaults to 100% at launch and applies for
+the current session.
 
 ## Project structure
 

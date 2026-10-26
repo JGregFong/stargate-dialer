@@ -35,6 +35,7 @@ class GateVisualState:
 class UISettings:
     uniform_glyph_sizing: bool = True
     glyph_sound_mode: str = 'classic'
+    volume: float = 1.0
 
 
 @dataclass

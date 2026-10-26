@@ -31,6 +31,7 @@ class Console:
         self.visual = GateVisualState()
         self.load_button_sounds()
         self.gate_audio = GateAudio()
+        self.set_volume(self.settings.volume)
         self.window = pygame.Window('SGC • Stargate Dialing Computer', size=(W, H), resizable=True)
         self.ui = DrawingContext(pygame.Surface((W, H)), Glyph())
         self.clock = pygame.time.Clock()
@@ -40,7 +41,8 @@ class Console:
         self.activation_press_played = False
         self.archive = AddressArchive(ui=self.ui, dialer=self.dialer, viewport=self.viewport)
         self.options = OptionsMenu(ui=self.ui, settings=self.settings,
-                                   gate_audio=self.gate_audio, viewport=self.viewport)
+                                   gate_audio=self.gate_audio, viewport=self.viewport,
+                                   set_volume=self.set_volume)
         self.commands = ConsoleCommands(dialer=self.dialer, visual=self.visual,
                                        input_state=self.input, iris=self.iris,
                                        action=self.action, stop_gate=self.stop_gate,
@@ -85,6 +87,12 @@ class Console:
             self.atlantis_press_sound = pygame.mixer.Sound(str(directory / 'atlantis' / 'press.mp3'))
         except (pygame.error, OSError) as error:
             print(f'Unable to load Atlantis press.mp3: {error}')
+
+    def set_volume(self, volume):
+        self.settings.volume = max(0.0, min(1.0, volume))
+        self.gate_audio.set_volume(self.settings.volume)
+        if self.button_channel is not None:
+            self.button_channel.set_volume(self.settings.volume)
 
     # Choose the selected button sound, preserving separate DIAL behavior.
     def play_button_sound(self, dial=False):
@@ -204,6 +212,10 @@ class Console:
             if d.state in ('idle', 'failed') and not self.visual.busy:
                 mode = 'current' if d.behavior == 'dhd' else 'dhd'
                 d.set_behavior(mode)
+        elif action == 'cycle_speed':
+            if d.state in ('idle', 'failed') and not self.visual.busy:
+                rpm = next((speed for speed in (5, 10, 15) if speed > d.rotation_rpm), 5)
+                d.set_rotation_rpm(rpm)
         elif action == 'iris':
             self.set_iris(not self.iris.target_closed, now)
         elif action == 'shutdown':
@@ -243,6 +255,24 @@ class Console:
         width, height = max(1, int(W * scale)), max(1, int(H * scale))
         return pygame.Rect((ww - width) // 2, (wh - height) // 2, width, height)
 
+    def update_gate(self, now):
+        """Advance logical state and consume transient connection results before drawing."""
+        previous_state = self.dialer.state
+        if previous_state == 'connected':
+            self.visual.last_connected_sequence = tuple(self.dialer.sequence)
+        self.dialer.update(now)
+        self.play_pending_activation_sound()
+        if self.dialer.state == 'failed':
+            reason = self.dialer.message
+            # Consume the failure cue before clearing the transient failed state.
+            self.gate_audio.update(self.dialer, self.visual.ring_return, now,
+                                   self.dialer.spin_fraction(now))
+            self.reset_gate(now, reason + ' / GATE RESET')
+        if previous_state != 'connected' and self.dialer.state == 'connected':
+            self.begin_horizon_open(now)
+        if previous_state == 'connected' and self.dialer.state != 'connected':
+            self.begin_horizon_close(now)
+
     # Advance simulation, route window-specific events, update sound, and present both windows.
     def run(self):
         running = True
@@ -251,16 +281,7 @@ class Console:
             viewport = self.viewport()
             mx, my = pygame.mouse.get_pos()
             self.ui.mouse = ((mx - viewport.x) * W / viewport.width, (my - viewport.y) * H / viewport.height)
-            # Update logical state before effects so opening/closing cues fire once.
-            previous_state = self.dialer.state
-            if previous_state == 'connected':
-                self.visual.last_connected_sequence = tuple(self.dialer.sequence)
-            self.dialer.update(now)
-            self.play_pending_activation_sound()
-            if previous_state != 'connected' and self.dialer.state == 'connected':
-                self.begin_horizon_open(now)
-            if previous_state == 'connected' and self.dialer.state != 'connected':
-                self.begin_horizon_close(now)
+            self.update_gate(now)
             self.renderer.draw(now)
             self.keyboard.draw_keyboard()
             for event in pygame.event.get():

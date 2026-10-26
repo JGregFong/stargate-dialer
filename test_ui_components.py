@@ -1,5 +1,6 @@
 """Cross-component interaction checks using SDL's dummy drivers."""
 import unittest
+from unittest.mock import Mock
 
 import pygame
 
@@ -7,6 +8,46 @@ from main import Console
 
 
 class UIComponentTests(unittest.TestCase):
+    def test_failed_dialing_resets_immediately_in_both_modes(self):
+        from glyph_database import address_database
+        from ui_geometry import TILE_ANGLE
+        app = self.app
+        for behavior in ('current', 'dhd'):
+            for name, reason in ((None, 'INVALID ADDRESS'), ('P3W-451', 'RESTRICTED'),
+                                 ('Tollan', 'UNAVAILABLE')):
+                with self.subTest(behavior=behavior, address=name):
+                    app.dialer.reset()
+                    app.dialer.set_behavior(behavior)
+                    app.visual.rest_rotation = 5 * TILE_ANGLE
+                    app.gate_audio.previous_state = 'idle'
+                    app.gate_audio.play = Mock(return_value=1)
+                    selected = address_database[name]['Address'] if name else [1, 2, 3, 4, 5, 6]
+                    if behavior == 'dhd':
+                        for glyph in selected + [0]:
+                            app.dialer.select(glyph, 0)
+                        app.dialer.activate(0)
+                    else:
+                        app.dialer.selected = selected[:]
+                        app.dialer.start(0)
+                    now = app.dialer.cycle_elapsed(len(app.dialer.sequence))
+                    expected = app.track_rotation(now)
+                    app.update_gate(now)
+                    if behavior == 'dhd':
+                        app.update_gate(now + .8)
+                    self.assertEqual(app.dialer.state, 'idle')
+                    self.assertEqual(app.dialer.locked, 0)
+                    self.assertEqual(app.dialer.selected, [])
+                    self.assertEqual(app.dialer.sequence, [])
+                    self.assertIn(reason, app.dialer.message)
+                    self.assertAlmostEqual(app.track_rotation(now + 1), expected)
+                    app.update_gate(now + 2)
+                    failures = [call for call in app.gate_audio.play.call_args_list
+                                if call.args == ('fail', 'effect')]
+                    self.assertEqual(len(failures), 1)
+                    app.renderer.draw(now + 2)
+                    self.assertFalse(app.visual.busy)
+                    self.assertTrue(app.dialer.load_destination('Abydos', now + 2))
+
     def test_early_abort_finishes_promptly_without_a_position_jump(self):
         from ui_geometry import TILE_ANGLE, ring_rotation
         app = self.app

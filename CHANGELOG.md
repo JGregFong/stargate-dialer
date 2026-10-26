@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.2.0 — 2026-10-25
+
+### Added
+
+- Master volume slider in Options, with click-and-drag adjustment from 0–100% for all sound channels, including currently playing audio.
+- Keyboard speed button cycling between 5, 10, and 15 RPM between dialing attempts.
+
+### Changed
+
+- Center the keyboard controls and destination display above the glyph slots; move glyph keys upward.
+- Shorten the aperture glow pulse cycle from 3.2 to 2.6 seconds.
+- Immediately reset invalid, restricted, and unavailable dialing attempts to idle, preserving the failure cue, reason, and final ring angle.
+- Unify selected, hovered, and disabled control styling across buttons, glyph tiles, and archive filters; center and fit button labels and improve disabled-text legibility.
+- Replace Options checkboxes and outline-only keyboard selections with the shared green selection treatment.
+- Shorten the keyboard's DHD toggle and indicate its enabled state with a green outline and fill.
+
 ## v1.1.1 — 2026-10-24
 
 ### Changed
