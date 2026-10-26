@@ -21,9 +21,7 @@ class GateVisualState:
     status_fade_started: float = 0.0
     horizon_closing: tuple[float, float] | None = None
     last_connected_sequence: tuple[int, ...] = ()
-    closing_glyphs: tuple[int | None, ...] = ()
-    last_connected_offworld: object | None = None
-    closing_offworld: object | None = None
+    closing_glyphs: tuple[int, ...] = ()
     slot_fade_started: float | None = None
     horizon_opening: tuple[float, float] | None = None
 
@@ -37,7 +35,6 @@ class GateVisualState:
 class UISettings:
     uniform_glyph_sizing: bool = True
     glyph_sound_mode: str = 'classic'
-    offworld_enabled: bool = False
     volume: float = 1.0
 
 
