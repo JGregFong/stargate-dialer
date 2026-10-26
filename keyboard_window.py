@@ -57,7 +57,7 @@ class GlyphKeyboard:
         self.ui.button((615, 19, 105, 42), 'UNDO', 'undo', idle and bool(d.selected))
         self.ui.button((730, 19, 105, 42), 'CLEAR', 'clear', idle or d.state == 'failed')
         self.ui.button((845, 19, 155, 42), 'ACTIVATE', 'dial', d.state in ('dialing', 'ready') and len(d.sequence) == d.symbol_count and not d.activation_requested if d.behavior == 'dhd' else idle and len(d.selected) == d.symbol_count - 1)
-        self.ui.button((1010, 19, 215, 42), 'SHUTDOWN / ESC', 'shutdown', d.state != 'idle' and d.offworld is None)
+        self.ui.button((1010, 19, 215, 42), 'SHUTDOWN / ESC', 'shutdown', d.state != 'idle')
         self.hover = None
         for glyph_id in range(1, 39):
             index = glyph_id - 1
@@ -76,8 +76,7 @@ class GlyphKeyboard:
                        mode_editable, selected=d.behavior == 'dhd')
         self.ui.button((945, 201, 280, 28), f'SPEED: {d.rotation_rpm or DEFAULT_ROTATION_RPM:g} RPM',
                        'cycle_speed', mode_editable)
-        self.ui.button((615, 201, 145, 28), 'IRIS', 'iris', d.offworld is None or d.offworld.kind != 'friendly_wo',
-                       selected=self.iris.target_closed)
+        self.ui.button((615, 201, 145, 28), 'IRIS', 'iris', selected=self.iris.target_closed)
         self.keyboard_buttons = self.ui.buttons[:]
         if self.modal_open():
             cover = pygame.Surface(self.ui.canvas.get_size(), pygame.SRCALPHA)

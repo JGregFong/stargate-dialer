@@ -5,7 +5,6 @@ from dialing_states import update_dialing
 from dhd_queue import DHDQueue
 from activation import Activation
 from connection import Connection
-from scenarios import OffworldActivation, TYPES, CHEVRON_SECONDS, WORMHOLE_SECONDS
 
 # Re-export motion helpers for existing callers.
 from ring_motion import (
@@ -23,7 +22,6 @@ class Dialer:
         self.activation = Activation()
         self.addresses = AddressValidator(address_database)
         self.dial_id = 0
-        self.offworld = None
         self.behavior = 'current'
         self.symbol_count = 7
         self.selected = []
@@ -77,40 +75,6 @@ class Dialer:
     @activation_sound_pending.setter
     def activation_sound_pending(self, value):
         self.activation.sound_pending = value
-
-    def begin_offworld(self, kind, now):
-        if kind not in TYPES or self.offworld is not None or self.state == 'connected':
-            return False
-        self.reset()
-        self.offworld = OffworldActivation(kind, now)
-        self.symbol_count = 7
-        self.sequence = [None] * 7
-        self.started = now
-        self.state = 'incoming'
-        self.destination = 'OFFWORLD ACTIVATION'
-        self.message = 'INCOMING WORMHOLE / DIALING SUSPENDED'
-        return True
-
-    def update_offworld(self, now, iris_open):
-        event = self.offworld
-        if event is None:
-            return
-        self.locked = min(7, max(0, int((now-event.started) / CHEVRON_SECONDS)))
-        if now >= event.established_at:
-            self.state = 'connected'
-            self.connected_at = event.established_at
-            if event.kind == 'hostile':
-                if iris_open:
-                    if event.open_since is None:
-                        event.open_since = max(event.established_at, now)
-                    if now-event.open_since >= 15:
-                        event.hostile_present = True
-                else:
-                    event.open_since = None
-            self.message = event.notification(now)
-            if now >= event.established_at + WORMHOLE_SECONDS:
-                self.offworld = None
-                self.reset('INCOMING WORMHOLE DISENGAGED')
 
     # Change speed only between dialing attempts.
     def set_rotation_rpm(self, rpm):
@@ -166,8 +130,6 @@ class Dialer:
 
     # Clear address and activation state while retaining selected mode preferences.
     def reset(self, message=None):
-        if self.offworld is not None:
-            return
         self.dial_id += 1
         self.selected = []
         self.origin_selected = False
@@ -194,8 +156,6 @@ class Dialer:
 
     # Keep animation and audio on the same floating-point-safe cycle boundary.
     def cycle_durations(self):
-        if self.offworld is not None:
-            return [CHEVRON_SECONDS] * 7
         if self.rotation_rpm is None:
             return [self.lock_seconds] * len(self.sequence)
         return [spin + ENCODING_SECONDS for _, spin in rotation_steps(
@@ -205,7 +165,7 @@ class Dialer:
         return sum(self.cycle_durations()[:count])
 
     def spin_fraction(self, now):
-        if self.offworld is not None or self.rotation_rpm is None or not self.sequence:
+        if self.rotation_rpm is None or not self.sequence:
             return 8 / 10.8
         index = min(self.dialing_position(now)[0], len(self.sequence) - 1)
         duration = self.cycle_durations()[index]
@@ -229,8 +189,6 @@ class Dialer:
 
     # Advance glyph locks, queued activation, destination resolution, and timeout.
     def update(self, now):
-        if self.offworld is not None:
-            return
         if self.state == 'dialing':
             update_dialing(self, now)
         elif self.state == 'activating' and self.activation.due(now):
@@ -271,8 +229,6 @@ class Dialer:
 
     # Return the nonnegative remaining connected duration.
     def remaining(self, now):
-        if self.offworld is not None:
-            return max(0, self.offworld.established_at + WORMHOLE_SECONDS - now)
         return self.connection.remaining(now)
 
     # Reset the logical gate; the UI owns the visible shutdown animations.

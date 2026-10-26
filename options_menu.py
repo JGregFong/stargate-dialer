@@ -28,9 +28,6 @@ class OptionsMenu:
                     'UNIFORM GLYPH SIZING', 'toggle_sizing',
                     selected=self.settings.uniform_glyph_sizing)
         self.ui.text('ON: shared scale. OFF: each glyph fits its slot.', (320, 410), 16, YELLOW)
-        self.ui.button((320, 437, 630, 38),
-                       'ENABLE OFFWORLD ACTIVATION SCENARIOS', 'toggle_offworld',
-                       selected=self.settings.offworld_enabled)
         self.ui.text('GLYPH PRESS SOUND', (320, 490), 22, CYAN)
         for index, (mode, label) in enumerate([('classic', 'CLASSIC DHD'), ('atlantis', 'ATLANTIS'), ('silent', 'SILENT')]):
             selected = self.settings.glyph_sound_mode == mode
@@ -68,9 +65,7 @@ class OptionsMenu:
                 return
             for rect, action, enabled in self.ui.buttons:
                 if enabled and rect.collidepoint(self.ui.mouse):
-                    if action == 'toggle_offworld':
-                        self.settings.offworld_enabled = not self.settings.offworld_enabled
-                    elif action == 'options_close':
+                    if action == 'options_close':
                         self.options_open = False
                         self.volume_dragging = False
                     elif action == 'toggle_computer_sounds':
