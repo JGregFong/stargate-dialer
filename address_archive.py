@@ -50,9 +50,8 @@ class AddressArchive:
         for glyph_id in range(39):
             rect = pygame.Rect(90 + glyph_id % 20 * 54, 205 + glyph_id // 20 * 46, 48, 40)
             selected = glyph_id in self.archive_glyphs
-            pygame.draw.rect(self.ui.canvas, (20, 53, 49) if selected else (9, 26, 34), rect)
-            self.ui.panel(rect, GREEN if selected else DIM)
-            self.ui.glyph.draw(self.ui.canvas, glyph_id, rect.center, 28, GREEN if selected else WHITE, (35, 30))
+            color = self.ui.control(rect, selected=selected)
+            self.ui.glyph.draw(self.ui.canvas, glyph_id, rect.center, 28, color, (35, 30))
             self.ui.buttons.append((rect, ('filter', glyph_id), True))
         results = self.archive_results()
         self.archive_scroll_by(0)
@@ -63,9 +62,7 @@ class AddressArchive:
         for row, (name, data) in enumerate(results[self.archive_scroll:self.archive_scroll+5]):
             y = 360 + row * 96
             rect = pygame.Rect(90, y, 1065, 88)
-            if rect.collidepoint(self.ui.mouse):
-                pygame.draw.rect(self.ui.canvas, (15, 40, 48), rect)
-            self.ui.panel(rect, CYAN)
+            self.ui.control(rect)
             for i, glyph_id in enumerate(data['Address'] + [0]):
                 cell = pygame.Rect(90 + i*73, y, 73, 88)
                 self.ui.panel(cell, DIM)

@@ -112,6 +112,13 @@ class Dialer:
                 self.offworld = None
                 self.reset('INCOMING WORMHOLE DISENGAGED')
 
+    # Change speed only between dialing attempts.
+    def set_rotation_rpm(self, rpm):
+        if self.state not in ('idle', 'failed'):
+            return False
+        self.rotation_rpm = validate_rpm(rpm)
+        return True
+
     # Switch between 7-, 8-, and 9-symbol addresses while idle.
     def set_symbol_count(self, count):
         if self.state != 'idle' or count not in (7, 8, 9):

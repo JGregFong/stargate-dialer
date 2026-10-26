@@ -26,7 +26,7 @@ address_list = {
     "Atlantis": [18, 20, 1, 15, 14, 7, 19],
     "Castiana": [28, 2, 5, 8, 11, 15],
     "Chulak": [8, 1, 22, 14, 36, 19],
-    "Destiny": [5, 27, 15, 3, 35, 16, 4, 33],
+    "Destiny": [5, 27, 20, 3, 35, 16, 4, 33],
     "Edora": [27, 37, 34, 8, 14, 2],
     "Euronda": [29, 26, 8, 6, 17, 15],
     "Juna": [28, 7, 17, 21, 3, 24],
@@ -55,7 +55,7 @@ address_database = {
                 {"Address": [13,20,15,10,29,8], "Locked": False, "Active": True, "Environment": "", "Notes": "", "Source": ""},
     "Clava Thessara Infinitas [2]":
                 {"Address": [25,19,34,31,22,3], "Locked": False, "Active": True, "Environment": "", "Notes": "", "Source": ""},
-    "Destiny":  {"Address": [5, 27, 15, 3, 35, 16, 4, 33], "Locked": False, "Active": True, "Environment": "", "Notes": "", "Source": ""},
+    "Destiny":  {"Address": [5, 27, 20, 3, 35, 16, 4, 33], "Locked": False, "Active": True, "Environment": "", "Notes": "", "Source": ""},
     "Edora":    {"Address": [27, 37, 34, 8, 14, 2], "Locked": False, "Active": True, "Environment": "", "Notes": "", "Source": ""},
     "Euronda":  {"Address": [29, 26, 8, 6, 17, 15], "Locked": False, "Active": True, "Environment": "", "Notes": "", "Source": ""},
     "Juna":     {"Address": [28, 7, 17, 21, 3, 24], "Locked": False, "Active": True, "Environment": "", "Notes": "", "Source": ""},

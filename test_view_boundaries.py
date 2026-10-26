@@ -39,7 +39,7 @@ class ViewBoundaryTests(unittest.TestCase):
         ui = DrawingContext(pygame.Surface((1280, 960)), Glyph())
         settings = UISettings()
         menu = OptionsMenu(ui=ui, settings=settings, gate_audio=Mock(),
-                           viewport=lambda: pygame.Rect(0, 0, 1280, 960))
+                           viewport=lambda: pygame.Rect(0, 0, 1280, 960), set_volume=Mock())
         menu.draw_options()
         rect = next(rect for rect, action, _ in ui.buttons if action == 'toggle_sizing')
         menu.options_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=rect.center))

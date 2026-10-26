@@ -5,6 +5,12 @@ import pygame
 
 
 class GateAudio:
+    def set_volume(self, volume):
+        """Adjust every gate channel, including any currently playing loops."""
+        volume = max(0.0, min(1.0, volume))
+        for channel in self.channels.values():
+            channel.set_volume(volume)
+
     # Reserve independent audio channels and load gate and computer cue variants.
     def __init__(self):
         self.sounds = {}

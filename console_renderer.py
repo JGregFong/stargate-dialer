@@ -65,7 +65,7 @@ class ConsoleRenderer:
     def draw_center_pulse(self, now):
         if self.visual.horizon_closing is not None or self.dialer.state not in ('idle', 'dialing', 'dhd_wait', 'ready', 'activating'):
             return
-        pulse = (1 - math.cos(now * math.tau / 3.2)) / 2
+        pulse = (1 - math.cos(now * math.tau / 2.6)) / 2
         radius = round(40 * GATE_SCALE * pulse)
         if radius < 1:
             return
@@ -404,6 +404,7 @@ class ConsoleRenderer:
             self.ui.text(f'{i + 1}  {"OK" if i < illuminated_chevrons else "--"}', (106, y), 15, color)
         destination_label = d.destination[:24]
         label_border = pygame.Rect(1107, 22, 133, 30)
+        label_border.centerx = self.glyph_slot(0).centerx
         if 16 not in self.ui.fonts:
             self.ui.fonts[16] = pygame.font.Font(str(TEXT_FONT_PATH), 16)
         label_image = self.ui.fonts[16].render(destination_label, True, WHITE)
