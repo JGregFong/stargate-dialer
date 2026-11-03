@@ -83,7 +83,7 @@ class KeyboardWindowTests(unittest.TestCase):
         app = self.app
         app.dialer.load_destination('Abydos')
         selected = app.dialer.selected[:]
-        for rpm in (10, 15, 5):
+        for rpm in (10, 15, 20, 30, 5):
             self.click('cycle_speed')
             self.assertEqual(app.dialer.rotation_rpm, rpm)
             self.assertEqual(app.dialer.selected, selected)

@@ -28,12 +28,14 @@ class AddressValidator:
                 and len(set(selected)) == symbol_count - 1
                 and all(glyph in range(1, 39) for glyph in selected))
 
-    def resolve(self, selected):
+    def resolve(self, selected, origin=None):
         match = next(((name, data) for name, data in self.destinations.items()
                       if data['Address'] == selected), None)
         if match is None:
             return AddressResult(None, False, 'INVALID ADDRESS / NO CONNECTION')
         name, data = match
+        if origin is not None and name.casefold() == origin.casefold():
+            return AddressResult(name, False, 'INVALID ADDRESS / NO CONNECTION')
         if data['Locked']:
             return AddressResult(name, False, 'DESTINATION RESTRICTED')
         if not data['Active']:

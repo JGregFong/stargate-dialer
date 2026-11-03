@@ -11,7 +11,9 @@ a = Analysis(
     datas=pygame_data + [
         (str(root / 'stargate_sg1_adress_glyphs.ttf'), '.'),
         (str(root / 'BankGothic Bold.ttf'), '.'),
-        (str(root / 'media'), 'media'),
+        # Custom videos remain external: avoid bundling multi-gigabyte footage.
+        *[(str(path), 'media/' + path.name) for path in (root / 'media').iterdir()
+          if path.is_dir() and path.name != 'videos'],
     ],
     hiddenimports=pygame_imports,
     hookspath=[],

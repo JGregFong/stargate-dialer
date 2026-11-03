@@ -3,11 +3,12 @@
 Dependencies are injected explicitly; this component owns its interaction state.
 """
 import pygame
+from video_options import VideoOptions
 from ui_geometry import W, H, BG, CYAN, WHITE, YELLOW
 
 
 class OptionsMenu:
-    def __init__(self, *, ui, settings, gate_audio, viewport, set_volume):
+    def __init__(self, *, ui, settings, gate_audio, viewport, set_volume, connection):
         self.ui = ui
         self.settings = settings
         self.gate_audio = gate_audio
@@ -16,19 +17,27 @@ class OptionsMenu:
         self.set_volume = set_volume
         self.volume_track = pygame.Rect(330, 622, 600, 8)
         self.volume_dragging = False
+        self.connection = connection
+        self.video = VideoOptions(ui, settings.horizon_video)
 
     def draw_options(self):
+        if self.video.opened:
+            self.video.draw()
+            return
         self.ui.buttons = []
-        box = pygame.Rect(290, 230, 700, 490)
+        box = pygame.Rect(290, 230, 700, 550)
         pygame.draw.rect(self.ui.canvas, BG, box)
         pygame.draw.rect(self.ui.canvas, CYAN, box, 2, border_radius=12)
         self.ui.text('OPTIONS', (320, 256), 26, CYAN)
-        self.ui.text('Applies to right-hand slots and placement animations.', (320, 306), 17, WHITE)
+        self.ui.text('Customize glyphs, audio, and event horizon playback.', (320, 306), 17, WHITE)
         self.ui.button((320, 350, 355, 44),
                     'UNIFORM GLYPH SIZING', 'toggle_sizing',
                     selected=self.settings.uniform_glyph_sizing)
         self.ui.text('ON: shared scale. OFF: each glyph fits its slot.', (320, 410), 16, YELLOW)
-        self.ui.text('GLYPH PRESS SOUND', (320, 490), 22, CYAN)
+        self.ui.button((320, 442, 630, 34),
+                       'RANDOM DURATION: +5-45 SEC / NEXT CONNECTION',
+                       'toggle_random_duration', selected=self.connection.randomize_duration)
+        self.ui.text('SGC GLYPH PRESS SOUND', (320, 490), 22, CYAN)
         for index, (mode, label) in enumerate([('classic', 'CLASSIC DHD'), ('atlantis', 'ATLANTIS'), ('silent', 'SILENT')]):
             selected = self.settings.glyph_sound_mode == mode
             self.ui.button((320 + index*210, 535, 200, 42),
@@ -44,12 +53,16 @@ class OptionsMenu:
         self.ui.button((580, 650, 370, 42),
                     'COMPUTER ENCODING SOUNDS', 'toggle_computer_sounds',
                     selected=self.gate_audio.computer_enabled)
+        self.ui.button((320, 710, 630, 40), 'EVENT HORIZON VIDEO', 'video_options')
 
     def options_event(self, event):
         if hasattr(event, 'pos'):
             viewport = self.viewport()
             self.ui.mouse = ((event.pos[0]-viewport.x)*W/viewport.width,
                              (event.pos[1]-viewport.y)*H/viewport.height)
+        if self.video.opened:
+            self.video.event(event)
+            return
         if ((event.type == pygame.MOUSEBUTTONUP and event.button == 1)
                 or event.type == pygame.WINDOWFOCUSLOST):
             self.volume_dragging = False
@@ -68,10 +81,14 @@ class OptionsMenu:
                     if action == 'options_close':
                         self.options_open = False
                         self.volume_dragging = False
+                    elif action == 'video_options':
+                        self.video.open()
                     elif action == 'toggle_computer_sounds':
                         self.gate_audio.set_computer_enabled(not self.gate_audio.computer_enabled)
                     elif action == 'toggle_sizing':
                         self.settings.uniform_glyph_sizing = not self.settings.uniform_glyph_sizing
+                    elif action == 'toggle_random_duration':
+                        self.connection.randomize_duration = not self.connection.randomize_duration
                     elif isinstance(action, tuple) and action[0] == 'glyph_sound':
                         self.settings.glyph_sound_mode = action[1]
                     break

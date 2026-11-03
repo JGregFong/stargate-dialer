@@ -2,6 +2,7 @@
 import random
 import math
 import pygame
+from animated_logo import AnimatedLogo
 from ui_geometry import (
     dialing_angles,
     connector_route,
@@ -23,7 +24,10 @@ from ui_geometry import (
 )
 
 
-class ConsoleRenderer:
+from gate_drawing import GateDrawing
+
+
+class ConsoleRenderer(GateDrawing):
     def __init__(self, *, ui, dialer, visual, settings, input_state, iris, track_rotation, archive, options):
         self.ui = ui
         self.dialer = dialer
@@ -35,6 +39,7 @@ class ConsoleRenderer:
         self.archive = archive
         self.options = options
         self.base = pygame.Surface((1280, 960))
+        self.logo = AnimatedLogo((35, 22, 182, 60))
         sources = [ui.glyph.image(i, 215) for i in range(39)]
         self.slot_reference_size = (max(image.get_width() for image in sources),
                                     max(image.get_height() for image in sources))
@@ -141,79 +146,6 @@ class ConsoleRenderer:
         if self.visual.telemetry_stopped is not None and now-self.visual.telemetry_stopped > 10:
             self.visual.telemetry_stopped = None
 
-    def make_event_horizon(self):
-        radius = HORIZON_RADIUS
-        diameter = radius * 2 + 1
-        surface = pygame.Surface((diameter, diameter), pygame.SRCALPHA)
-        for y in range(diameter):
-            for x in range(diameter):
-                distance = math.hypot(x-radius, y-radius) / radius
-                if distance <= 1:
-                    # Opaque center; a gentle color and opacity fade near the rim.
-                    edge = max(0, (distance - .35) / .65)
-                    edge = edge * edge * (3 - 2 * edge)
-                    surface.set_at((x, y), (round(65-25*edge), round(175-45*edge),
-                                             round(245-35*edge), round(255-65*edge)))
-        return surface
-
-    def draw_event_horizon(self, now):
-        image = self.event_horizon
-        if self.dialer.state == 'connected':
-            # A subtle 3.2-second breathing cycle; keep opacity and size intact.
-            pulse = (1 - math.cos(now * math.tau / 3.2)) / 2
-            brightness = round(235 + 20 * pulse)
-            image = image.copy()
-            image.fill((brightness, brightness, brightness, 255),
-                       special_flags=pygame.BLEND_RGBA_MULT)
-        if self.visual.horizon_closing is not None:
-            started, duration = self.visual.horizon_closing
-            progress = max(0, min(1, (now-started)/duration))
-            if progress >= 1:
-                self.visual.horizon_closing = None
-                self.visual.slot_fade_started = started + duration
-                return
-            image = image.copy()
-            # A broad, feathered clearing front travels from center to rim.
-            feather = round(70 * GATE_SCALE)
-            front = (HORIZON_RADIUS + feather) * progress * progress * (3-2*progress)
-            mask = pygame.Surface(image.get_size(), pygame.SRCALPHA)
-            mask.fill((255, 255, 255, 255))
-            for radius in range(HORIZON_RADIUS, -1, -1):
-                opacity = max(0, min(1, (radius-front+feather) / feather))
-                opacity = opacity * opacity * (3-2*opacity)
-                alpha = round(255 * opacity)
-                if radius:
-                    pygame.draw.circle(mask, (255, 255, 255, alpha),
-                                       (HORIZON_RADIUS, HORIZON_RADIUS), radius)
-                else:
-                    mask.set_at((HORIZON_RADIUS, HORIZON_RADIUS), (255, 255, 255, alpha))
-            image.blit(mask, (0, 0), special_flags=pygame.BLEND_RGBA_MULT)
-        elif self.dialer.state != 'connected':
-            return
-        elif self.visual.horizon_opening is not None:
-            started, duration = self.visual.horizon_opening
-            progress = max(0, min(1, (now-started)/duration))
-            if progress >= 1:
-                self.visual.horizon_opening = None
-            else:
-                radius = round(HORIZON_RADIUS * progress * progress * (3-2*progress))
-                if radius < 1:
-                    return
-                # Scale the full gradient so the growing disk retains its fade.
-                diameter = radius * 2 + 1
-                image = pygame.transform.smoothscale(image, (diameter, diameter))
-                self.ui.canvas.blit(image, (CENTER[0]-radius, CENTER[1]-radius))
-                return
-        self.ui.canvas.blit(image, (CENTER[0]-HORIZON_RADIUS, CENTER[1]-HORIZON_RADIUS))
-
-    def glyph_slot(self, index):
-        top, bottom, gap = 116, 872, 8
-        count = self.dialer.symbol_count
-        height = (bottom - top - gap * (count - 1)) / count
-        y = round(top + index * (height + gap))
-        end = round(top + index * (height + gap) + height)
-        return pygame.Rect(1040, y, 133, end - y)
-
     def draw_status_text(self, status, color, now):
         panel = pygame.Rect(358, 790, 565, 82)
         if 52 not in self.ui.fonts:
@@ -250,21 +182,6 @@ class ConsoleRenderer:
         blend.set_alpha(round(255*(1-math.cos(now*math.tau/4.0))/2))
         self.ui.canvas.blit(blend, panel.topleft)
 
-    def slot_glyph_image(self, glyph_id, slot, color=WHITE):
-        area = pygame.Rect(slot.left + 6, slot.top + 6, slot.width - 12, slot.height - 12)
-        image = self.ui.glyph.image(glyph_id, 215, color)
-        # Uniform uses one reference scale; fit-to-slot restores per-glyph sizing.
-        reference = self.slot_reference_size if self.settings.uniform_glyph_sizing else image.get_size()
-        scale = min(area.width / reference[0], area.height / reference[1])
-        image = pygame.transform.smoothscale(image, (max(1, round(image.get_width()*scale)),
-                                                     max(1, round(image.get_height()*scale))))
-        return image, area.center
-
-    def draw_slot_glyph(self, glyph_id, slot, color=WHITE, alpha=255):
-        image, center = self.slot_glyph_image(glyph_id, slot, color)
-        image.set_alpha(alpha)
-        self.ui.canvas.blit(image, image.get_rect(center=center))
-
     def slot_fade_alpha(self, index, now):
         if self.visual.slot_fade_started is None:
             return 255
@@ -278,6 +195,7 @@ class ConsoleRenderer:
 
     def draw(self, now):
         self.ui.canvas.blit(self.base, (0, 0))
+        self.logo.draw(self.ui.canvas, now)
         self.ui.buttons = []
         d = self.dialer
         self.draw_telemetry(now)
@@ -292,7 +210,9 @@ class ConsoleRenderer:
         # Inactive bottom chevrons are drawn without a glyph-slot connection.
         for index, clockwise_angle in enumerate(active_angles + tuple(a for a in CHEVRON_ANGLES if a not in active_angles)):
             angle = clockwise_angle - 90
-            chevron_color = RED if index < illuminated_chevrons else CYAN if index >= d.symbol_count else YELLOW
+            off_color = CYAN if index >= d.symbol_count else YELLOW
+            light = self.visual.chevron_light(index, illuminated_chevrons, now)
+            chevron_color = tuple(round(a+(b-a)*light) for a, b in zip(off_color, RED))
             # The clamp surrounds the jewel and tapers toward the gate center.
             clamp_outline = [
                 polar(250, angle - 6),
@@ -403,7 +323,7 @@ class ConsoleRenderer:
             status = 'CLOSING'
         self.draw_status_text(status, RED if d.state in ('connected', 'failed') else CYAN, now)
         if d.state == 'connected':
-            seconds = math.ceil(d.remaining(now))
+            seconds = math.floor(d.connection.elapsed(now))
             self.ui.text('WORMHOLE TIMER', (225, 805), 12, YELLOW)
             self.ui.text(f'{seconds // 60:02}:{seconds % 60:02}', (248, 827), 24, WHITE)
         self.ui.text(d.message.replace('—', '/'), (350, 751), 13, YELLOW)
@@ -414,6 +334,8 @@ class ConsoleRenderer:
         self.ui.text('> ' + self.input_state.text + ('_' if self.input_state.focused else '  [click: help / dial NAME / shutdown]'), (605, 900), 13, WHITE)
         self.ui.button((35, 86, 182, 24), 'OPTIONS', 'options')
         self.ui.button((245, 883, 215, 30), 'GLYPH KEYBOARD', 'keyboard')
+        from offworld import can_travel
+        self.ui.button((475, 883, 105, 30), 'TRAVEL', 'travel', can_travel(d))
         if self.archive.archive_open:
             self.archive.draw_archive()
         elif self.options.options_open:

@@ -10,12 +10,72 @@ from glyph import Glyph
 from iris import Iris
 from keyboard_window import GlyphKeyboard
 from main import Console
+from connection import Connection
 from options_menu import OptionsMenu
 from simulator import Dialer
 from view_state import CommandInput, GateVisualState, UISettings
+from offworld_state import OffworldVisualState
+from offworld_renderer import OffworldRenderer
+from console_renderer import ConsoleRenderer
+from themes import ABYDOS
 
 
 class ViewBoundaryTests(unittest.TestCase):
+    def test_offworld_renderer_needs_no_earth_renderer(self):
+        dialer = Dialer(rotation_rpm=5)
+        dialer.theme = ABYDOS
+        dialer.set_behavior('dhd')
+        state = OffworldVisualState()
+        ui = DrawingContext(pygame.Surface((1280, 960)), Glyph())
+        renderer = OffworldRenderer(ui=ui, dialer=dialer, visual=state,
+                                    settings=UISettings(), track_rotation=lambda now: state.rotation(dialer, now))
+        canvas = ui.canvas
+        with patch.object(ConsoleRenderer, 'draw_event_horizon', side_effect=AssertionError('Earth dependency')):
+            renderer.draw(0)
+        self.assertIs(ui.canvas, canvas)
+        self.assertFalse(hasattr(state, 'telemetry_running'))
+        self.assertFalse(hasattr(state, 'slot_fade_started'))
+        self.assertFalse(hasattr(GateVisualState(), 'fade_started'))
+
+    def test_offworld_shutdown_completes_without_rendering_or_touching_earth(self):
+        app = Console()
+        earth_state = app.earth_visual
+        earth_state.telemetry_running = True
+        earth_state.slot_fade_started = 123
+        app.dialer.theme = ABYDOS
+        app.dialer.set_behavior('dhd')
+        app.dialer.load_destination('Earth', 0)
+        app.dialer.activate(0)
+        app.update_gate(app.dialer.cycle_elapsed(7))
+        app.update_gate(app.dialer.cycle_elapsed(7)+.81)
+        app.stop_gate(6)
+        state = app.offworld_visual
+        closes = 6+app.gate_audio.close_duration
+        app.update_gate(closes+.01)
+        self.assertIsNone(state.horizon_closing)
+        self.assertFalse(state.busy)
+        self.assertEqual(state.fade_alpha, 255)
+        app.update_gate(closes+3)
+        self.assertEqual(state.fade_alpha, 0)
+        self.assertEqual(state.closing_slots, ())
+        self.assertTrue(earth_state.telemetry_running)
+        self.assertEqual(earth_state.slot_fade_started, 123)
+
+    def test_offworld_braking_advances_without_rendering(self):
+        app = Console()
+        app.dialer.theme = ABYDOS
+        app.dialer.offworld_sgc_dialing = True
+        app.dialer.set_behavior('dhd')
+        app.action(26, 0)
+        app.stop_gate(1)
+        state = app.offworld_visual
+        started, _, duration, _ = state.ring_return
+        app.update_gate(started+duration+.01)
+        self.assertIsNone(state.ring_return)
+        self.assertEqual(state.rest_rotation, state.ring_stop_target)
+        self.assertIsNone(app.earth_visual.ring_return)
+        self.assertEqual(app.earth_visual.rest_rotation, 0)
+
     def setUp(self):
         pygame.init()
 
@@ -39,7 +99,7 @@ class ViewBoundaryTests(unittest.TestCase):
         ui = DrawingContext(pygame.Surface((1280, 960)), Glyph())
         settings = UISettings()
         menu = OptionsMenu(ui=ui, settings=settings, gate_audio=Mock(),
-                           viewport=lambda: pygame.Rect(0, 0, 1280, 960), set_volume=Mock())
+                           viewport=lambda: pygame.Rect(0, 0, 1280, 960), set_volume=Mock(), connection=Connection())
         menu.draw_options()
         rect = next(rect for rect, action, _ in ui.buttons if action == 'toggle_sizing')
         menu.options_event(pygame.event.Event(pygame.MOUSEBUTTONDOWN, button=1, pos=rect.center))

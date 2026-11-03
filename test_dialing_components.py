@@ -5,9 +5,62 @@ from activation import Activation
 from address_validation import AddressValidator
 from connection import Connection
 from simulator import Dialer
+from themes import ABYDOS
+from dhd_queue import OFFWORLD_ENGAGE_DELAY
 
 
 class ComponentTests(unittest.TestCase):
+    def test_offworld_short_delay_preserves_order_and_cancels_on_shutdown(self):
+        for rpm in (None, 5, 30):
+            with self.subTest(rpm=rpm):
+                d = Dialer(rotation_rpm=rpm)
+                d.theme = ABYDOS
+                d.set_behavior('dhd')
+                for glyph in (27, 25, 4):
+                    self.assertTrue(d.select(glyph, 10))
+                self.assertEqual(d.selected, [27, 25, 4])
+                self.assertEqual(d.locked, 0)
+                d.update(10+OFFWORLD_ENGAGE_DELAY-.001)
+                self.assertEqual(d.locked, 0)
+                d.update(10+OFFWORLD_ENGAGE_DELAY)
+                self.assertEqual(d.locked, 1)
+                d.update(10+2*OFFWORLD_ENGAGE_DELAY)
+                self.assertEqual(d.locked, 2)
+                d.shutdown()
+                d.update(100)
+                self.assertEqual((d.locked, d.sequence, d.state), (0, [], 'idle'))
+
+    def test_offworld_sgc_matches_earth_dhd_queue_pause_resume_and_activation(self):
+        earth, offworld = Dialer(rotation_rpm=5), Dialer(rotation_rpm=5)
+        offworld.theme = ABYDOS
+        offworld.offworld_sgc_dialing = True
+        for d in (earth, offworld):
+            d.set_behavior('dhd')
+            self.assertTrue(d.select(8, 0))
+            self.assertTrue(d.select(1, .1))
+        first_end = earth.cycle_elapsed(1)
+        for d in (earth, offworld):
+            d.update(first_end)
+            self.assertEqual((d.state, d.locked), ('dialing', 1))
+        end = earth.cycle_elapsed(2)
+        for d in (earth, offworld):
+            d.update(end)
+            self.assertEqual((d.state, d.locked), ('dhd_wait', 2))
+            # Resume after a long pause, then queue the rest without waiting.
+            for glyph in (22, 14, 36, 19, 0):
+                self.assertTrue(d.select(glyph, end+100))
+            self.assertTrue(d.activate(end+100))
+            self.assertEqual(d.locked, 2)
+        self.assertEqual(earth.started, offworld.started)
+        self.assertEqual(earth.cycle_durations(), offworld.cycle_durations())
+        final_lock = earth.started+earth.cycle_elapsed(7)
+        for d in (earth, offworld):
+            d.update(final_lock)
+            self.assertEqual((d.state, d.locked), ('activating', 7))
+            d.update(final_lock+.81)
+            self.assertEqual(d.state, 'connected')
+            self.assertEqual(d.destination, 'CHULAK')
+
     def test_resolution_preserves_order_and_restriction_precedence(self):
         validator = AddressValidator({
             'Blocked': {'Address': [1, 2], 'Active': False, 'Locked': True},

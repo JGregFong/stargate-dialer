@@ -25,14 +25,14 @@ python -m venv .venv
 On Linux or macOS:
 
 ```sh
-.venv/bin/python -m pip install "pygame-ce>=2.5.7" "setuptools==83.0.0"
+.venv/bin/python -m pip install "pygame-ce>=2.5.7" "setuptools==83.0.0" "av>=19.0.2,<20"
 .venv/bin/python main.py
 ```
 
 On Windows PowerShell:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install "pygame-ce>=2.5.7" "setuptools==83.0.0"
+.\.venv\Scripts\python.exe -m pip install "pygame-ce>=2.5.7" "setuptools==83.0.0" "av>=19.0.2,<20"
 .\.venv\Scripts\python.exe main.py
 ```
 
@@ -45,6 +45,9 @@ Click **GLYPH KEYBOARD** to open the separate resizable keyboard window. It star
 hidden; closing it hides the keyboard without exiting the simulator. The main
 console contains the gate, address slots, diagnostics, status, command field,
 **OPTIONS**, and **LOAD DESTINATION**.
+
+The keyboard uses a 1280 × 300 layout with spaced control groups and glyph rows;
+resizing scales both the display and its click targets together.
 
 The keyboard provides Earth (0), destination glyphs 1–38, **7 SYM / 8 SYM /
 9 SYM**, **UNDO**, **CLEAR**, **ACTIVATE**, **SHUTDOWN / ESC**, **IRIS**, and the
@@ -107,14 +110,107 @@ request instead. Without an activation request, the fully encoded gate stays
 ### Connections and shutdown
 
 A successful connection displays **ACTIVE**, a green OK indicator per locked
-symbol, a procedural blue event horizon, and a 38-minute countdown. The timer
-starts when the connection is established and automatically disengages at expiry.
+symbol, a procedural blue event horizon, and an elapsed-time display counting up
+from **00:00** when the connection opens. Automatic closure still occurs after
+38 minutes by default. The **RANDOM DURATION** toggle in Options adds a randomly
+chosen **5–45 seconds** to each new connection's lifetime. It defaults to off;
+changing it affects the next connection, not one already open.
 
 Unknown, restricted, and inactive addresses play the failure cue and immediately
 reset the gate to **IDLE**, clearing the address and chevrons. The failure reason
 remains in the message line, and a new address can be entered immediately.
+Dialing the current planet's own address (such as Earth from SGC or Abydos from
+Abydos) is treated as an invalid address and follows the same reset behavior.
 **SHUTDOWN / ESC** or Escape aborts dialing or closes a connection;
 the console animates braking or closure as appropriate.
+
+## Planet themes and offworld DHD framework
+
+Earth remains the default console. Dial Abydos, wait for a successful connection,
+then click **TRAVEL** to arrive. Arrival switches to the local theme while
+preserving the open connection at both ends. After a 1.5-second grace period,
+both gates shut down together. Manual shutdown during that period closes both
+early; travel does not replay opening audio. Connecting alone never changes location.
+
+Arrival gates show an incoming connection with empty address slots and unselected
+DHD keys. The departure address stays at its source and is not shown during the
+arrival gate's shutdown fade. A fresh local entry restores normal address display.
+Offworld gates show a cached static gate image and glyph slots without telemetry, iris,
+ring motion, or flying glyph animations. The event horizon still opens and closes.
+The gate has layered metallic bands, engraved track panels, inner vents, and
+ribbed V-shaped chevrons with recessed jewels that illuminate as symbols lock.
+The gate image is drawn procedurally; the reference photographs are not bundled
+as game artwork.
+
+The offworld keyboard has two rings of 19 wedge buttons and a central red
+**ACTIVATE** dome. Each glyph press lights its button immediately, then encodes
+its slot and engages its chevron after a short 0.2-second delay. Rapid presses
+queue in order; shutdown cancels pending engagements. Select destination
+glyphs, the local origin last, then activate. Length controls support 7–9-symbol
+addresses on Earth; offworld DHDs are restricted to seven symbols, with the
+address-mode controls hidden and longer address loads rejected. Arrival offworld
+also restores seven-symbol mode. To return, enter Earth's address **27, 25, 4, 35, 10, 28**, followed by
+the local origin and Activate, then **TRAVEL** after connecting. Hover/click areas
+follow each wedge rather than rectangular bounding boxes.
+
+Computer encoding cues are suppressed offworld; DHD button and gate sounds remain
+active. Returning to Earth restores the existing computer-sound preference.
+One continuous roll loop starts on the first glyph without restarting on later
+presses, and stops as soon as the final chevron engages (or on failure/shutdown).
+Offworld engagement uses `chev_usual_1.wav` through `chev_usual_7.wav` in shuffled
+sets: every clip plays once before reshuffling, with no immediate repeat across
+sets. Earth retains its original chevron sounds.
+The offworld DHD's **SGC DIALING** toggle defaults off and can be changed while
+idle. When enabled, glyph presses queue while the ring rotates and chevrons lock
+in order, using the SGC console's DHD queue and timing. The ring pauses when the
+queue runs out and resumes with the next press. After entering the complete
+address and origin, the dome can queue activation before the final lock. The frame and
+chevrons stay fixed. Offworld computer encoding sounds remain disabled.
+Selected glyph buttons have orange outlines matching their symbols. The central
+dome activates a complete address and serves as Shutdown while connected or
+during an unfinished dialing sequence; there is no separate Shutdown button.
+During SGC-style offworld dialing, shutdown brakes the ring to a nearby tile
+center, stops the roll, then plays `dial_fail_sg1.mp3` once. Instant dialing
+stops immediately and plays the same failure cue when an entry is interrupted.
+Closing an established connection or stopping an idle gate does not play that cue.
+Offworld slot glyphs and DHD selection lights fade together during shutdown.
+This uses one offworld fade timeline; after closure, new entry is immediately
+available and interrupts the lingering lights. The offworld DHD has no Undo or
+Clear buttons; use the center dome to cancel an unfinished entry.
+The lights linger for 0.6 seconds after connection closure or ring braking, then
+fade over two seconds. Starting a fresh entry clears any remaining selection fade.
+The offworld **SPEED / RPM** button uses the same speed cycle as the SGC keyboard.
+It is enabled only with **SGC DIALING** on, while the gate is idle and transitions
+have finished. Hover labels appear below these controls.
+
+`themes.py` owns immutable planet profiles: background, DHD tint/style, local
+origin artwork, keyboard inventory, and a reserved ambient-sound path. DHD RGB
+channels stay within ±24 of the shared base `(82, 79, 69)`. Supported styles are
+`weathered-stone` and `smooth-metal`. Ambient playback is deferred.
+
+The 38-button requirement includes the origin, so each offworld profile replaces
+one of the 38 shared glyphs. `omitted_glyph` is configurable; the initial Abydos
+profile omits glyph 12 (Aquila), matching the configured 19+19 arrangement.
+Both ring orders are defined clockwise from twelve o'clock in `themes.py`;
+the local origin occupies the sixteenth outer-ring position.
+Addresses containing that omitted glyph are rejected when loaded or entered.
+Internal ID 0 means local origin; Abydos renders glyph 39 (font character `n`),
+while Earth retains its bundled origin glyph. Add origin artwork in `glyph.py`
+and its validated key in `PlanetTheme` when introducing further planets.
+Register profiles in `PLANET_THEMES`; **TRAVEL** is enabled only for registered
+destinations. Earth and Abydos are the initial supported locations.
+
+Preview without travelling:
+
+```powershell
+.\.venv\Scripts\python.exe main.py --abydos
+.\.venv\Scripts\python.exe main.py --theme abydos --preview previews/abydos-gate.png
+.\.venv\Scripts\python.exe main.py --theme abydos --keyboard-preview previews/abydos-dhd.png
+```
+
+`--abydos` launches directly on Abydos with the offworld DHD hidden; it is a shortcut
+for `--theme abydos`. Packaged builds also accept `StargateDialer.exe --abydos`.
+Arrival offworld also hides the DHD. Click **GLYPH KEYBOARD** to open it manually.
 
 ## Address archive
 
@@ -172,8 +268,51 @@ DHD behavior is controlled in the keyboard window.
 
 The **MASTER VOLUME** slider adjusts all keyboard, gate, computer, and iris
 sounds immediately, including loops already playing. Click or drag to select
-0–100%; 0% mutes all audio. Volume defaults to 100% at launch and applies for
-the current session.
+0–100%; 0% mutes all audio. Volume defaults to 100% on first launch and is
+remembered for subsequent sessions.
+
+## Remembered settings
+
+Preferences restore automatically at startup and save quietly after changes and
+on normal exit. This includes volume, sound choices, glyph sizing, randomized
+duration, dialing mode, speed, symbol count, offworld SGC dialing, and video file,
+enablement, and timestamps. Video playback starts disabled on a fresh setup;
+enabling it explicitly is remembered. An explicit `--rpm` overrides the saved speed.
+
+Settings are stored in `%LOCALAPPDATA%\StargateDialer\settings.json` on Windows,
+`~/.config/stargate-dialer/settings.json` on Linux (or `$XDG_CONFIG_HOME`), and
+`~/Library/Application Support/StargateDialer/settings.json` on macOS. Writes are
+debounced and atomic; missing, invalid, or unwritable files never trigger dialogs
+or prevent startup. Delete the file to restore defaults. Active connections and
+entered addresses are not restored. Preview commands do not read or save preferences.
+
+## Custom event-horizon videos
+
+Open **OPTIONS → EVENT HORIZON VIDEO**, choose **SELECT VIDEO FILE**, and select
+an MKV, MP4, WebM, AVI, or MOV file. Enable **USE VIDEO**, edit the **OPENING** and
+**CLOSING TIMESTAMP** fields, and press **APPLY**. Acceptable formats are seconds,
+`MM:SS`, or `HH:MM:SS`, with optional decimal seconds. Clicking a field and typing
+replaces its value. Back/Cancel discards edits. Changes apply to the next connection.
+
+Playback starts at the opening marker when a connection is established. Shutdown
+jumps to the closing marker and plays the rest of the video before removing the
+horizon. If a connection outlasts the active footage, the steady section loops.
+Video audio is muted; the existing gate sound effects and volume controls remain.
+Opening and closing frames preload during dialing. Separate, bounded read-ahead
+buffers keep closing playback from waiting on a long keyframe seek in the active
+video stream.
+Both Earth and offworld gates use the video, center-cropped into the circular
+aperture without stretching. Unreadable videos fall back to the procedural horizon.
+
+Video playback is disabled by default, with no file preselected. The supplied
+4K MKV can be selected from `media/videos/`; its markers are **00:02** and **38:33**. Use **USE INCLUDED
+VIDEO** to restore that clip and its defaults. Applied video settings are remembered
+between sessions. PyAV provides background decoding and is installed by `uv sync --locked`.
+
+Custom videos stay as external files rather than being embedded in executable
+builds. When using a packaged executable, select a local copy through the file
+picker. On Linux the picker requires Tk support (`python3-tk`); packaged builds
+include Tk when available on the build host.
 
 ## Project structure
 
@@ -186,11 +325,41 @@ actions, and routes the main event loop. It composes these UI components:
 | `address_archive.py` | Archive state, filtering, scrolling, destination information, and input. |
 | `options_menu.py` | Options menu rendering and interaction. |
 | `console_commands.py` | Parsing and dispatching console commands. |
-| `console_renderer.py` | Main console drawing, telemetry, glyph placement, and visual effects. |
+| `console_renderer.py` | Earth console drawing, telemetry, glyph movement, and status effects. |
+| `offworld_renderer.py` | Independent offworld gate renderer and gate/ring caches. |
+| `offworld.py` | Offworld DHD layout, fitted glyphs, controls, and hit targets. |
+| `gate_drawing.py` | Shared horizon and glyph-slot drawing primitives. |
+| `gate_motion_state.py` | Shared ring motion, braking, and horizon state. |
+| `offworld_state.py` | Offworld shutdown, closure, retained glyphs, and synchronized fades. |
 | `drawing_context.py` | Window-local canvas, font cache, mouse position, drawing helpers, and button hit targets. |
-| `view_state.py` | Explicit gate-animation state, UI settings, and command-input state. |
+| `view_state.py` | Earth animation state, UI settings, and command-input state. |
 | `ui_geometry.py` | Shared dimensions, palette, and gate geometry. |
 | `ring_motion.py` | Shared default RPM, acceleration ramps, symbol travel durations, and ring position/velocity. |
+
+UI components receive their resources and action callbacks through keyword-only
+constructor arguments; they do not receive a `Console` reference. The main window
+and glyph keyboard have separate `DrawingContext` instances, so keyboard rendering
+never replaces the main window's canvas or input targets. The renderer owns its
+cached gate frame, event horizon, and slot sizing resources.
+
+Code using the UI should call the owning component directly, for example
+`app.renderer.draw(now)`, `app.keyboard.open_keyboard()`, and
+`app.commands.execute_command(now)`. Drawing state is under `app.ui`, animation
+state under `app.visual`, settings under `app.settings`, and command text/focus
+under `app.input`. `app.visual` and `app.renderer` select the active location's
+state and renderer. Their explicit owners are `app.earth_visual`,
+`app.offworld_visual`, `app.earth_renderer`, and `app.offworld_renderer`.
+Keyboard and command controllers resolve the active state through an injected
+provider. Travel preserves the source gate's state, initializes the arrival
+gate's presentation, and clears the arrival renderer's offworld caches as needed.
+The connection tracks both endpoints and the post-arrival shutdown deadline;
+both gate states advance even while only one location is displayed.
+
+Offworld rendering does not call the Earth renderer or swap its drawing canvas.
+Its shutdown state has no telemetry, status blending, or Earth slot-fade timer.
+Offworld closure and fade completion advance from `update_gate(now)` even when
+no window is rendered. Ring/braking math and horizon/slot drawing are shared;
+Earth retains its original telemetry, flying glyphs, and staggered slot fade.
 
 UI components receive their resources and action callbacks through keyword-only
 constructor arguments; they do not receive a `Console` reference. The main window
@@ -316,3 +485,5 @@ ChatGPT's Codex assisted with generating the Pygame code. The interface and even
 horizon are drawn procedurally with Pygame and inspired by the supplied reference
 photographs. No external artwork, sound effects, or voices were generated through
 ChatGPT.
+
+The offworld dialing button cycles **DHD DIALING -> SPINNING DIALING -> ROTARY DIALING**. DHD mode keeps the ring still; spinning mode engages chevrons with the same short delay while the ring turns continuously between entries, stopping at the final chevron. Rotary mode rotates to each selected glyph before engaging. RPM is available for both moving modes; mode changes require an idle gate.

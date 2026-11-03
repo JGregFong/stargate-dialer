@@ -4,6 +4,8 @@ The dialer supplies the shared sequence and cycle clock so rendering and audio
 observe the same progress as the queue.
 """
 
+OFFWORLD_ENGAGE_DELAY = .4
+
 
 class DHDQueue:
     @staticmethod

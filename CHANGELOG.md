@@ -1,5 +1,29 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Automatically restore and quietly autosave user preferences in a per-user JSON file, with debounced atomic writes, graceful failure handling, and an exit flush.
+
+### Fixed
+
+- Smooth video horizon transitions with read-ahead frame buffers, multithreaded decoding, and opening/closing preload during dialing instead of repeated 4K keyframe seeks.
+
+### Added
+
+- Optional custom event-horizon video playback on Earth and offworld gates, with file selection and editable opening/closing timestamps in Options.
+- Background PyAV decoding, aspect-preserving circular video rendering, steady-section looping, and procedural fallback for video errors.
+- Configure the supplied MKV locally; keep large custom video files external to executable packages.
+
+### Changed
+
+- Show elapsed wormhole time counting up from 00:00 instead of a countdown.
+
+### Added
+
+- Optional randomized wormhole duration: add 5–45 seconds once per newly established connection, controlled from Options.
+
 ## v1.2.0 — 2026-10-25
 
 ### Added

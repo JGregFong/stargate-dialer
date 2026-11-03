@@ -4,6 +4,13 @@ import math
 DEFAULT_ROTATION_RPM = 5.0
 ROTATION_RAMP_SECONDS = 1.5
 ENCODING_SECONDS = 2.8
+TILE_ANGLE = 360 / 39
+
+
+def tile_angles(glyph_id, rotation=0.0):
+    """Clockwise tile center and equal boundaries, measured from top chevron."""
+    center = glyph_id*TILE_ANGLE + rotation
+    return center, center-TILE_ANGLE/2, center+TILE_ANGLE/2
 
 
 def validate_rpm(rpm):
@@ -24,7 +31,7 @@ def rotation_steps(sequence, initial_rotation=0.0, rpm=DEFAULT_ROTATION_RPM):
     rotation = initial_rotation
     for index, glyph in enumerate(sequence):
         direction = 1 if index % 2 == 0 else -1
-        distance = ((-glyph * 360 / 39 - rotation) * direction) % 360
+        distance = ((-glyph * TILE_ANGLE - rotation) * direction) % 360
         if distance < 180:
             distance += 360
         delta = direction * distance

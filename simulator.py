@@ -2,9 +2,10 @@
 from glyph_database import address_database
 from address_validation import AddressValidator
 from dialing_states import update_dialing
-from dhd_queue import DHDQueue
+from dhd_queue import DHDQueue, OFFWORLD_ENGAGE_DELAY
 from activation import Activation
-from connection import Connection
+from connection import Connection, TRAVEL_CLOSE_SECONDS
+from themes import EARTH, theme_for
 
 # Re-export motion helpers for existing callers.
 from ring_motion import (
@@ -23,6 +24,8 @@ class Dialer:
         self.addresses = AddressValidator(address_database)
         self.dial_id = 0
         self.behavior = 'current'
+        self.theme = EARTH
+        self.offworld_dialing_mode = 'dhd'
         self.symbol_count = 7
         self.selected = []
         self.origin_selected = False
@@ -30,10 +33,19 @@ class Dialer:
         self.locked = 0
         self.activation.reset()
         self.state = 'idle'
+        self.connection.arrival_close_at = None
         self.message = f'SELECT {self.symbol_count - 1} DISTINCT GLYPHS'
         self.destination = 'MANUAL ADDRESS'
         self.started = 0.0
         self.connected_at = 0.0
+
+    @property
+    def offworld_sgc_dialing(self):
+        return self.offworld_dialing_mode == 'rotary'
+
+    @offworld_sgc_dialing.setter
+    def offworld_sgc_dialing(self, enabled):
+        self.offworld_dialing_mode = 'rotary' if enabled else 'dhd'
 
     # Compatibility attributes delegate storage to their owning components.
     @property
@@ -85,6 +97,8 @@ class Dialer:
 
     # Switch between 7-, 8-, and 9-symbol addresses while idle.
     def set_symbol_count(self, count):
+        if self.theme.offworld and count != 7:
+            return False
         if self.state != 'idle' or count not in (7, 8, 9):
             return False
         self.symbol_count = count
@@ -94,6 +108,9 @@ class Dialer:
     # Load an ordered address and automatically queue encoding in DHD mode.
     def load_destination(self, name, now=0):
         data = address_database[name]
+        if self.theme.offworld and any(g not in self.theme.keyboard_glyphs for g in data['Address']):
+            self.message = 'ADDRESS CONTAINS A GLYPH UNAVAILABLE ON THIS DHD'
+            return False
         if not self.set_symbol_count(len(data['Address']) + 1):
             return False
         self.selected = data['Address'][:]
@@ -108,6 +125,8 @@ class Dialer:
 
     # Change dialing behavior only when no active procedure would be interrupted.
     def set_behavior(self, behavior):
+        if self.theme.offworld and behavior != 'dhd':
+            return False
         if behavior not in ('current', 'dhd') or self.state not in ('idle', 'failed'):
             return False
         self.behavior = behavior
@@ -116,6 +135,8 @@ class Dialer:
 
     # Validate glyph entry and immediately queue or resume DHD encoding.
     def select(self, glyph, now=0):
+        if self.theme.offworld and glyph not in self.theme.keyboard_glyphs:
+            return False
         allowed = self.state == 'idle' or (self.behavior == 'dhd' and self.state in ('dialing', 'dhd_wait'))
         if not allowed or not self.addresses.can_select(glyph, self.selected, self.symbol_count, self.origin_selected):
             return False
@@ -136,6 +157,7 @@ class Dialer:
         self.sequence = []
         self.locked = 0
         self.activation.reset()
+        self.connection.arrival_close_at = None
         self.state = 'idle'
         self.destination = 'MANUAL ADDRESS'
         self.message = message or f'SELECT {self.symbol_count - 1} DISTINCT GLYPHS'
@@ -155,7 +177,13 @@ class Dialer:
         return True
 
     # Keep animation and audio on the same floating-point-safe cycle boundary.
+    @property
+    def instant_dhd(self):
+        return self.theme.offworld and self.behavior == 'dhd' and not self.offworld_sgc_dialing
+
     def cycle_durations(self):
+        if self.instant_dhd:
+            return [OFFWORLD_ENGAGE_DELAY]*len(self.sequence)
         if self.rotation_rpm is None:
             return [self.lock_seconds] * len(self.sequence)
         return [spin + ENCODING_SECONDS for _, spin in rotation_steps(
@@ -165,6 +193,8 @@ class Dialer:
         return sum(self.cycle_durations()[:count])
 
     def spin_fraction(self, now):
+        if self.instant_dhd:
+            return 0.0
         if self.rotation_rpm is None or not self.sequence:
             return 8 / 10.8
         index = min(self.dialing_position(now)[0], len(self.sequence) - 1)
@@ -174,7 +204,7 @@ class Dialer:
     def dialing_position(self, now):
         """One shared, boundary-safe cycle clock for animation and sound."""
         elapsed = max(0.0, now-self.started)
-        if self.rotation_rpm is not None:
+        if self.rotation_rpm is not None or self.instant_dhd:
             durations = self.cycle_durations()
             for index, duration in enumerate(durations):
                 if elapsed < duration - 1e-7:
@@ -193,8 +223,13 @@ class Dialer:
             update_dialing(self, now)
         elif self.state == 'activating' and self.activation.due(now):
             self.resolve_connection(now)
-        elif self.state == 'connected' and self.connection.expired(now):
-            self.reset('CONNECTION LIMIT REACHED / DISENGAGED')
+        elif self.state == 'connected':
+            self.connection.travel_locked = now < self.connection.travel_unlock_at
+            if self.connection.arrival_close_at is not None:
+                if now >= self.connection.arrival_close_at:
+                    self.reset('TRAVEL COMPLETE / BOTH GATES DISENGAGED')
+            elif self.connection.expired(now):
+                self.reset('CONNECTION LIMIT REACHED / DISENGAGED')
 
     # Accept a DHD activation request once every address symbol has been selected.
     def activate(self, now):
@@ -219,13 +254,35 @@ class Dialer:
 
     # Check address order and eligibility before connecting or reporting failure.
     def resolve_connection(self, now):
-        result = self.addresses.resolve(self.selected)
+        result = self.addresses.resolve(self.selected, origin=self.theme.name)
         if result.destination is not None:
             self.destination = result.destination.upper()
         self.state = 'connected' if result.available else 'failed'
         self.message = result.message
         if result.available:
+            self.connection.origin = self.theme.name
+            self.connection.destination = result.destination
             self.connection.connect(now)
+            self.message = f'WORMHOLE ESTABLISHED / {self.theme.name.upper()} ORIGIN'
+
+    def travel(self, now=0):
+        """Arrive through the existing connection, then close both ends after a grace period."""
+        target = theme_for(self.destination)
+        if (self.state != 'connected' or target is None or target == self.theme
+                or now < self.connection.travel_unlock_at
+                or self.connection.arrival_close_at is not None):
+            return False
+        origin = self.theme
+        self.connection.origin = self.connection.origin or origin.name
+        self.connection.destination = self.connection.destination or target.name
+        self.connection.arrival_close_at = now+TRAVEL_CLOSE_SECONDS
+        self.theme = target
+        if target.offworld:
+            self.symbol_count = 7
+        self.behavior = 'dhd' if target.offworld else 'current'
+        self.destination = origin.name.upper()
+        self.message = f'ARRIVED / {target.name.upper()} / GATES CLOSING SHORTLY'
+        return True
 
     # Return the nonnegative remaining connected duration.
     def remaining(self, now):

@@ -9,11 +9,20 @@ from ring_motion import DEFAULT_ROTATION_RPM
 from ui_geometry import BG, CYAN, DIM, WHITE, YELLOW, GREEN
 
 
+def keyboard_bounds(size, position, desktop):
+    """Fit the complete client area on screen, allowing room for window chrome."""
+    dw, dh = desktop
+    width, height = min(size[0], max(1, dw-40)), min(size[1], max(1, dh-60))
+    x = max(0, min(position[0], dw-width-20))
+    y = max(0, min(position[1], dh-height-40))
+    return pygame.Rect(x, y, width, height)
+
+
 class GlyphKeyboard:
     def __init__(self, *, glyph, dialer, visual, iris, window, action, stop_gate, modal_open):
         self.glyph = glyph
         self.dialer = dialer
-        self.visual = visual
+        self._visual = visual
         self.iris = iris
         self.window = window
         self.action = action
@@ -26,20 +35,40 @@ class GlyphKeyboard:
         self.keyboard_mouse = (-1, -1)
         self.hover = None
 
+    @property
+    def visual(self):
+        return self._visual() if callable(self._visual) else self._visual
+
     def open_keyboard(self):
         if self.keyboard_window is None:
             x, y = self.window.position
             desktop_w, desktop_h = pygame.display.get_desktop_sizes()[0]
-            width = min(1280, desktop_w-40)
+            height = 680 if self.dialer.theme.offworld else 240
+            bounds = keyboard_bounds((1280, height),
+                                     (x, y+round(self.window.size[1]*.74)), (desktop_w, desktop_h))
             self.keyboard_window = pygame.Window(
-                'SGC / Glyph Keyboard', size=(width, 240), resizable=True,
-                position=(max(0, min(x, desktop_w-width)),
-                          max(0, min(y+round(self.window.size[1]*.74), desktop_h-280))))
+                'Stargate / Glyph Keyboard', size=bounds.size, resizable=True, position=bounds.topleft)
         self.keyboard_visible = True
         self.keyboard_window.show()
         self.keyboard_window.focus()
 
     def draw_keyboard(self):
+        size = (1280, 680) if self.dialer.theme.offworld else (1280, 240)
+        if self.ui.canvas.get_size() != size:
+            self.ui.canvas = pygame.Surface(size)
+            if self.keyboard_window is not None:
+                bounds = keyboard_bounds(size, self.keyboard_window.position,
+                                         pygame.display.get_desktop_sizes()[0])
+                self.keyboard_window.size = bounds.size
+                self.keyboard_window.position = bounds.topleft
+        if self.dialer.theme.offworld:
+            from offworld import draw_keyboard
+            draw_keyboard(self)
+            if self.keyboard_window is not None and self.keyboard_visible:
+                surface = self.keyboard_window.get_surface()
+                surface.blit(pygame.transform.smoothscale(self.ui.canvas, surface.get_size()), (0, 0))
+                self.keyboard_window.flip()
+            return
         self.ui.buttons = []
         self.ui.mouse = self.keyboard_mouse
         self.ui.canvas.fill(BG)
@@ -97,7 +126,7 @@ class GlyphKeyboard:
             return
         if hasattr(event, 'pos'):
             ww, wh = self.keyboard_window.size
-            self.keyboard_mouse = (event.pos[0]*1280/max(1,ww), event.pos[1]*240/max(1,wh))
+            self.keyboard_mouse = (event.pos[0]*self.ui.canvas.get_width()/max(1,ww), event.pos[1]*self.ui.canvas.get_height()/max(1,wh))
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for rect, action, enabled in self.keyboard_buttons:
                 if enabled and rect.collidepoint(self.keyboard_mouse):

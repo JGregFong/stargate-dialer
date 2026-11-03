@@ -1,7 +1,7 @@
 """Shared console layout, palette, and ring motion geometry."""
 import math
 from pathlib import Path
-from ring_motion import ring_rotation
+from ring_motion import ring_rotation, TILE_ANGLE
 
 # Console dimensions, palette, and shared gate geometry.
 W, H = 1280, 960
@@ -65,4 +65,3 @@ def polar(radius, angle):
     return CENTER[0] + math.cos(a) * radius, CENTER[1] + math.sin(a) * radius
 
 
-TILE_ANGLE = 360 / 39

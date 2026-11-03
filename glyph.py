@@ -14,11 +14,23 @@ class Glyph:
     def __init__(self):
         self.fonts = {}
         self.cache = {}
+        self.origin_mark = 'earth'
 
     # Render the font character, crop it, and apply the requested orientation correction.
     def image(self, glyph_id, size, color=(238, 250, 255)):
-        key = (glyph_id, size, tuple(color))
+        key = (glyph_id, size, tuple(color), self.origin_mark if glyph_id == 0 else None)
         if key not in self.cache:
+            if glyph_id == 0 and self.origin_mark == 'abydos':
+                self.cache[key] = self.image(39, size, color)
+                return self.cache[key]
+            if glyph_id == 0 and self.origin_mark == 'three-moons':
+                surface = pygame.Surface((size, size), pygame.SRCALPHA)
+                pygame.draw.lines(surface, color, False,
+                                  [(size*.15, size*.9), (size*.5, size*.35), (size*.85, size*.9)], max(1, size//24))
+                for x, y in ((.25, .22), (.5, .12), (.75, .22)):
+                    pygame.draw.circle(surface, color, (round(size*x), round(size*y)), max(1, size//15), max(1, size//32))
+                self.cache[key] = surface
+                return surface
             if size not in self.fonts:
                 self.fonts[size] = pygame.font.Font(str(FONT_PATH), size)
             surface = self.fonts[size].render(glyph_letters[glyph_id], True, color)

@@ -1,11 +1,25 @@
 """Check five-RPM travel, symbol alignment, and synchronized encoding."""
 import unittest
 
-from ring_motion import ring_rotation
+from ring_motion import ring_rotation, tile_angles, TILE_ANGLE
 from simulator import Dialer, rotation_steps
 
 
 class RingMotionTests(unittest.TestCase):
+    def test_equal_tiles_and_exact_centering_for_every_glyph(self):
+        for glyph in range(39):
+            with self.subTest(glyph=glyph):
+                center, start, end = tile_angles(glyph)
+                self.assertAlmostEqual(end-start, TILE_ANGLE)
+                self.assertAlmostEqual((start+end)/2, center)
+                self.assertAlmostEqual(end, tile_angles(glyph+1)[1])
+                for initial in (0, 23.4):
+                    _, duration = next(rotation_steps([glyph], initial))
+                    rotation = ring_rotation([glyph], duration+.1, 10.8, initial_rotation=initial)
+                    center, start, end = tile_angles(glyph, rotation)
+                    self.assertAlmostEqual((center+180) % 360-180, 0)
+                    self.assertAlmostEqual(center-start, end-center)
+
     def test_smooth_speed_ramps(self):
         sequence = [1]
         _, duration = next(rotation_steps(sequence))

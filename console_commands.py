@@ -5,13 +5,17 @@ from glyph_database import address_database
 class ConsoleCommands:
     def __init__(self, *, dialer, visual, input_state, iris, action, stop_gate, reset_gate, set_iris):
         self.dialer = dialer
-        self.visual = visual
+        self._visual = visual
         self.input_state = input_state
         self.iris = iris
         self.action = action
         self.stop_gate = stop_gate
         self.reset_gate = reset_gate
         self.set_iris = set_iris
+
+    @property
+    def visual(self):
+        return self._visual() if callable(self._visual) else self._visual
 
     def execute_command(self, now):
         parts = self.input_state.text.strip().split(maxsplit=1)

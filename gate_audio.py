@@ -2,6 +2,7 @@
 from pathlib import Path
 import random
 import pygame
+from ring_motion import ENCODING_SECONDS
 
 
 class GateAudio:
@@ -25,20 +26,25 @@ class GateAudio:
         self.computer_enabled = True
         self.computer_token = None
         self.computer_stage = None
+        self.offworld_chevron_bag = []
+        self.last_offworld_chevron = None
         if not pygame.mixer.get_init():
             return
-        pygame.mixer.set_reserved(8)
+        pygame.mixer.set_num_channels(max(9, pygame.mixer.get_num_channels()))
+        pygame.mixer.set_reserved(9)
         self.channels = {name: pygame.mixer.Channel(i) for i, name in enumerate(
-            ('roll', 'chevron', 'effect', 'wormhole', 'computer', 'computer_beep', 'iris'), 1)}
+            ('roll', 'chevron', 'effect', 'wormhole', 'computer', 'computer_beep', 'iris', 'teleport'), 1)}
         directory = Path(__file__).resolve().parent / 'media' / 'sounds' / 'stargate'
         files = {
             'roll': ('roll.wav',),
             'chevron': ('sgc_chevron.mp3', 'sgc_chevron2.mp3'),
+            'rotary_chevron': ('chevron.mp3', 'chevron2.mp3'),
             'final_chevron': ('chevron_lock.mp3',),
             'open': ('open.mp3', 'eh_usual_open.wav'),
             'wormhole': ('wormhole_loop.wav',),
             'close': ('close.mp3', 'gate_close.mp3'),
             'fail': ('dial_fail_sg1.mp3',),
+            'teleport': ('teleport.mp3',) + tuple(f'teleport_{i}.mp3' for i in range(2, 9)),
         }
         for key, names in files.items():
             self.sounds[key] = []
@@ -49,6 +55,13 @@ class GateAudio:
                     print(f'Unable to load sound {name}: {error}')
 
         computer_directory = directory.parent / 'computer'
+        self.sounds['offworld_chevron'] = []
+        for number in range(1, 8):
+            path = directory.parent / 'chevron' / f'chev_usual_{number}.wav'
+            try:
+                self.sounds['offworld_chevron'].append(pygame.mixer.Sound(str(path)))
+            except (pygame.error, OSError) as error:
+                print(f'Unable to load {path.name}: {error}')
         for key, names in {
             'computer_in': ('dial_chevron_encode_fr.wav', 'dial_chevron_encode2_fr.wav'),
             'computer_out': ('dial_chevron_encode.wav', 'dial_chevron_encode2.wav'),
@@ -80,7 +93,8 @@ class GateAudio:
 
     # Trigger one cue per glyph-animation stage using stable dial and symbol IDs.
     def update_computer(self, dialer, returning, now, spin_fraction):
-        if not self.computer_enabled or returning or dialer.state != 'dialing' or now < dialer.started:
+        if (dialer.theme.offworld or not self.computer_enabled or returning
+                or dialer.state != 'dialing' or now < dialer.started):
             if self.computer_token is not None:
                 self.stop('computer')
                 self.stop('computer_beep')
@@ -109,7 +123,17 @@ class GateAudio:
     def play(self, sound, channel, loop=False):
         choices = self.sounds.get(sound, [])
         if choices and channel in self.channels:
-            sound_file = random.choice(choices)
+            if sound == 'offworld_chevron':
+                if not self.offworld_chevron_bag:
+                    self.offworld_chevron_bag = choices[:]
+                    random.shuffle(self.offworld_chevron_bag)
+                    if len(choices) > 1 and self.offworld_chevron_bag[-1] is self.last_offworld_chevron:
+                        self.offworld_chevron_bag[0], self.offworld_chevron_bag[-1] = (
+                            self.offworld_chevron_bag[-1], self.offworld_chevron_bag[0])
+                sound_file = self.offworld_chevron_bag.pop()
+                self.last_offworld_chevron = sound_file
+            else:
+                sound_file = random.choice(choices)
             self.channels[channel].play(sound_file, loops=-1 if loop else 0)
             return sound_file.get_length()
         return 0.0
@@ -126,7 +150,34 @@ class GateAudio:
         returning = ring_return is not None
         self.update_computer(dialer, returning, now, spin_fraction)
         spin_key = None
-        if returning:
+        if dialer.theme.offworld:
+            if returning:
+                # Continue the existing loop only until the centered stop.
+                if now < ring_return[0]+ring_return[2]:
+                    spin_key = self.spin_key
+            elif dialer.sequence and state in ('dialing', 'dhd_wait', 'ready', 'activating'):
+                if dialer.offworld_sgc_dialing:
+                    # Rotary encoding is stationary: roll only during symbol travel.
+                    index, phase = dialer.dialing_position(now)
+                    if state == 'dialing' and now >= dialer.started and phase < spin_fraction:
+                        spin_key = ('offworld-rotary', dialer.dial_id, index)
+                elif dialer.locked < dialer.symbol_count:
+                    # Instant/spinning DHD modes retain their continuous loop.
+                    spin_key = ('offworld', dialer.dial_id)
+                engaged_index = dialer.locked-1
+                if dialer.offworld_sgc_dialing and state == 'dialing':
+                    index, phase = dialer.dialing_position(now)
+                    if index < len(dialer.sequence):
+                        duration = dialer.cycle_durations()[index]
+                        if phase*duration-(duration-ENCODING_SECONDS) >= -1e-7:
+                            engaged_index = index
+                token = (dialer.dial_id, engaged_index)
+                if engaged_index >= 0 and self.engaged != token:
+                    cue = ('final_chevron' if engaged_index == dialer.symbol_count-1
+                           else 'rotary_chevron') if dialer.offworld_sgc_dialing else 'offworld_chevron'
+                    self.play(cue, 'chevron')
+                    self.engaged = token
+        elif returning:
             # Keep an already playing roll uninterrupted across an abort.
             spin_key = self.spin_key or ('return', ring_return[0])
         elif state == 'dialing' and now >= dialer.started:
@@ -148,7 +199,8 @@ class GateAudio:
             if not self.returning:
                 self.return_failure_played = False
             return_end = ring_return[0] + ring_return[2]
-            if not self.return_failure_played and now >= return_end - .5:
+            cue_at = return_end if dialer.theme.offworld else return_end-.5
+            if not self.return_failure_played and now >= cue_at:
                 self.play('fail', 'effect')
                 self.return_failure_played = True
         elif self.returning and not self.return_failure_played:
