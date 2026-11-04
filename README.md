@@ -304,10 +304,9 @@ video stream.
 Both Earth and offworld gates use the video, center-cropped into the circular
 aperture without stretching. Unreadable videos fall back to the procedural horizon.
 
-Video playback is disabled by default, with no file preselected. The supplied
-4K MKV can be selected from `media/videos/`; its markers are **00:02** and **38:33**. Use **USE INCLUDED
-VIDEO** to restore that clip and its defaults. Applied video settings are remembered
-between sessions. PyAV provides background decoding and is installed by `uv sync --locked`.
+Video playback is disabled by default, with no file preselected. Applied video settings
+are remembered between sessions. PyAV provides background decoding and is installed
+by `uv sync --locked`.
 
 Custom videos stay as external files rather than being embedded in executable
 builds. When using a packaged executable, select a local copy through the file
