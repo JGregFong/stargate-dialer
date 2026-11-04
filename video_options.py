@@ -23,8 +23,8 @@ def select_video_file():
 
 
 class VideoOptions:
-    fields = {'opening': pygame.Rect(640, 342, 390, 38),
-              'closing': pygame.Rect(640, 406, 390, 38)}
+    fields = {'opening': pygame.Rect(640, 406, 390, 38),
+              'closing': pygame.Rect(640, 458, 390, 38)}
 
     def __init__(self, ui, settings, choose_file=select_video_file):
         self.ui, self.settings, self.choose_file = ui, settings, choose_file
@@ -43,14 +43,20 @@ class VideoOptions:
     def draw(self):
         ui = self.ui
         ui.buttons = []
-        pygame.draw.rect(ui.canvas, BG, (220, 170, 840, 640))
-        pygame.draw.rect(ui.canvas, CYAN, (220, 170, 840, 640), 2, border_radius=12)
-        ui.text('EVENT HORIZON VIDEO', (250, 194), 25)
-        ui.button((250, 240, 380, 40), 'DISABLE VIDEO' if self.draft.enabled else 'USE VIDEO', 'video_toggle',
+        decoder = video_decoder()
+        with decoder.lock:
+            playback_error = decoder.errors.get(self.draft.path, '')
+        error_lines = textwrap.wrap(self.error or playback_error, 82)[:2]
+        box = pygame.Rect(220, 230, 840, 456 + len(error_lines)*18)
+        pygame.draw.rect(ui.canvas, BG, box)
+        pygame.draw.rect(ui.canvas, CYAN, box, 2, border_radius=12)
+        ui.text('EVENT HORIZON VIDEO', (250, 254), 25)
+        ui.button((830, 250, 200, 40), 'BACK / CANCEL', 'video_back')
+        ui.button((250, 310, 380, 40), 'DISABLE VIDEO' if self.draft.enabled else 'USE VIDEO', 'video_toggle',
                   enabled=bool(self.draft.path), selected=self.draft.enabled and bool(self.draft.path))
-        ui.button((650, 240, 380, 40), 'SELECT VIDEO FILE', 'video_browse')
+        ui.button((650, 310, 380, 40), 'SELECT VIDEO FILE', 'video_browse')
         ui.centered_slot_text(Path(self.draft.path).name or 'No video selected',
-                              pygame.Rect(245, 0, 790, 30), 302, 14, WHITE)
+                              pygame.Rect(245, 0, 790, 30), 368, 14, WHITE)
         for name, rect in self.fields.items():
             ui.text(name.upper() + ' TIMESTAMP', (250, rect.y + 10), 16, CYAN)
             ui.control(rect, selected=self.focus == name)
@@ -62,16 +68,10 @@ class VideoOptions:
                 'Closing: where playback jumps when the gate shuts down.',
                 'Long connections loop the steady section; video audio is muted.',
                 'Changes apply to the next connection. Existing gate sounds remain.']):
-            ui.text(line, (250, 470 + i*24), 13, YELLOW)
-        decoder = video_decoder()
-        with decoder.lock:
-            playback_error = decoder.errors.get(self.draft.path, '')
-        message = self.error or playback_error
-        for i, line in enumerate(textwrap.wrap(message, 82)[:2]):
-            ui.text(line, (250, 594 + i*18), 13, RED)
-        ui.button((250, 650, 380, 40), 'USE INCLUDED VIDEO', 'video_supplied', SUPPLIED_VIDEO.is_file())
-        ui.button((650, 650, 380, 40), 'APPLY', 'video_apply')
-        ui.button((250, 740, 200, 40), 'BACK / CANCEL', 'video_back')
+            ui.text(line, (250, 518 + i*20), 13, YELLOW)
+        for i, line in enumerate(error_lines):
+            ui.text(line, (250, 618 + i*18), 13, RED)
+        ui.button((250, 626 + len(error_lines)*18, 780, 40), 'APPLY', 'video_apply')
 
     def select(self, path):
         if not path:
@@ -136,8 +136,6 @@ class VideoOptions:
                             self.select(self.choose_file())
                         except Exception as error:
                             self.error = f'File picker unavailable: {error}'
-                    elif action == 'video_supplied':
-                        self.select(SUPPLIED_VIDEO)
                     elif action == 'video_apply':
                         self.apply()
                     elif action == 'video_back':

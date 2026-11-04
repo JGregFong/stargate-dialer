@@ -29,10 +29,12 @@ class OptionsMenu:
         pygame.draw.rect(self.ui.canvas, BG, box)
         pygame.draw.rect(self.ui.canvas, CYAN, box, 2, border_radius=12)
         self.ui.text('OPTIONS', (320, 256), 26, CYAN)
+        self.ui.button((800, 250, 150, 42), 'CLOSE / ESC', 'options_close')
         self.ui.text('Customize glyphs, audio, and event horizon playback.', (320, 306), 17, WHITE)
-        self.ui.button((320, 350, 355, 44),
+        self.ui.button((320, 350, 305, 44),
                     'UNIFORM GLYPH SIZING', 'toggle_sizing',
                     selected=self.settings.uniform_glyph_sizing)
+        self.ui.button((645, 350, 305, 44), 'EVENT HORIZON VIDEO', 'video_options')
         self.ui.text('ON: shared scale. OFF: each glyph fits its slot.', (320, 410), 16, YELLOW)
         self.ui.button((320, 442, 630, 34),
                        'RANDOM DURATION: +5-45 SEC / NEXT CONNECTION',
@@ -49,11 +51,9 @@ class OptionsMenu:
         pygame.draw.line(self.ui.canvas, CYAN, self.volume_track.midleft,
                          (knob_x, self.volume_track.centery), 4)
         pygame.draw.circle(self.ui.canvas, WHITE, (knob_x, self.volume_track.centery), 8)
-        self.ui.button((320, 650, 150, 42), 'CLOSE / ESC', 'options_close')
         self.ui.button((580, 650, 370, 42),
                     'COMPUTER ENCODING SOUNDS', 'toggle_computer_sounds',
                     selected=self.gate_audio.computer_enabled)
-        self.ui.button((320, 710, 630, 40), 'EVENT HORIZON VIDEO', 'video_options')
 
     def options_event(self, event):
         if hasattr(event, 'pos'):

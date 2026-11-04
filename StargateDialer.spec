@@ -13,7 +13,7 @@ a = Analysis(
         (str(root / 'BankGothic Bold.ttf'), '.'),
         # Custom videos remain external: avoid bundling multi-gigabyte footage.
         *[(str(path), 'media/' + path.name) for path in (root / 'media').iterdir()
-          if path.is_dir() and path.name != 'videos'],
+          if path.is_dir() and path.name not in ('video', 'videos')],
     ],
     hiddenimports=pygame_imports,
     hookspath=[],
