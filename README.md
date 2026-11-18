@@ -433,10 +433,14 @@ the preview smoke checks pass:
 | `StargateDialer-windows-x64` | `StargateDialer-windows-x64.zip`, containing `StargateDialer.exe` | Windows x64 |
 | `StargateDialer-linux-x64` | `StargateDialer-linux-x64.tar.gz`, containing `StargateDialer` | Ubuntu 22.04 x64 |
 
-Open a successful run in the repository's **Actions** tab and download the desired
-artifact. Extract the included archive; the Linux tar archive preserves executable
-permissions. Artifacts are retained for 14 days. Each executable is built on its
-own operating system and must be run on that platform. Linux builds target Ubuntu
+Download the archive for your platform from the **Assets** section of a GitHub
+release. Publishing a release triggers builds from its tag and attaches both
+archives after the smoke checks pass. Development builds are available from
+successful runs in the repository's **Actions** tab for 14 days.
+
+Extract the archive before running the executable. The Linux tar archive
+preserves executable permissions. Each executable is built on its own operating
+system and must be run on that platform. Linux builds target Ubuntu
 22.04 or compatible newer distributions and require desktop graphics/audio system
 libraries. Python does not need to be installed on the target machine.
 

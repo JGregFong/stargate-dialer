@@ -3,6 +3,8 @@ name: Tests and builds
 on:
   push:
   pull_request:
+  release:
+    types: [published]
   workflow_dispatch:
 
 permissions:
@@ -93,3 +95,31 @@ jobs:
           path: dist/StargateDialer-${{ matrix.platform }}.*
           if-no-files-found: error
           retention-days: 14
+
+  release-assets:
+    name: Attach Windows and Linux builds to release
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - name: Download smoke-tested archives
+        uses: actions/download-artifact@v8
+        with:
+          pattern: StargateDialer-*
+          path: release-assets
+          merge-multiple: true
+      - name: Upload release assets
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          windows=release-assets/StargateDialer-windows-x64.zip
+          linux=release-assets/StargateDialer-linux-x64.tar.gz
+          test -s "$windows"
+          test -s "$linux"
+          gh release upload "$RELEASE_TAG" "$windows" "$linux" --clobber
