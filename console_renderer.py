@@ -323,9 +323,13 @@ class ConsoleRenderer(GateDrawing):
             status = 'CLOSING'
         self.draw_status_text(status, RED if d.state in ('connected', 'failed') else CYAN, now)
         if d.state == 'connected':
-            seconds = math.floor(d.connection.elapsed(now))
+            centiseconds = math.floor(d.connection.elapsed(now) * 100)
+            seconds, hundredths = divmod(centiseconds, 100)
+
             self.ui.text('WORMHOLE TIMER', (225, 805), 12, YELLOW)
-            self.ui.text(f'{seconds // 60:02}:{seconds % 60:02}', (248, 827), 24, WHITE)
+            self.ui.seven_segment_text(
+                f'{seconds // 60:02}:{seconds % 60:02}.{hundredths:02}',
+                (230, 827), 24, WHITE)
         self.ui.text(d.message.replace('—', '/'), (350, 751), 13, YELLOW)
 
         idle = d.state == 'idle' and not self.visual.busy

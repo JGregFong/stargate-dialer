@@ -24,6 +24,53 @@ class DrawingContext:
             label = pygame.transform.smoothscale(label, (cell.width - 8, label.get_height()))
         self.canvas.blit(label, label.get_rect(midtop=(cell.centerx, y)))
 
+    def seven_segment_text(self, text, pos, height=24, color=WHITE):
+        """Draw fixed-width digital digits without relying on an installed font."""
+        width = height * 0.55
+        thickness = height * 0.12
+        gap = thickness * 0.35
+        middle = height / 2
+        digits = ('abcdef', 'bc', 'abdeg', 'abcdg', 'bcfg',
+                  'acdfg', 'acdefg', 'abc', 'abcdefg', 'abcdfg')
+        x, y = pos
+
+        def horizontal(cy):
+            return [(gap, cy), (thickness, cy - thickness / 2),
+                    (width - thickness, cy - thickness / 2),
+                    (width - gap, cy), (width - thickness, cy + thickness / 2),
+                    (thickness, cy + thickness / 2)]
+
+        def vertical(cx, top, bottom):
+            return [(cx, top + gap), (cx + thickness / 2, top + thickness),
+                    (cx + thickness / 2, bottom - thickness),
+                    (cx, bottom - gap), (cx - thickness / 2, bottom - thickness),
+                    (cx - thickness / 2, top + thickness)]
+
+        segments = dict(zip('abcdefg', (
+            horizontal(thickness / 2), vertical(width - thickness / 2, thickness / 2, middle),
+            vertical(width - thickness / 2, middle, height - thickness / 2),
+            horizontal(height - thickness / 2), vertical(thickness / 2, middle, height - thickness / 2),
+            vertical(thickness / 2, thickness / 2, middle), horizontal(middle))))
+        for character in str(text):
+            if character == ':':
+                for cy in (height * 0.33, height * 0.67):
+                    pygame.draw.circle(self.canvas, color,
+                                       (round(x + thickness), round(y + cy)),
+                                       max(1, round(thickness / 2)))
+                x += thickness * 3
+            elif character == '.':
+                pygame.draw.circle(self.canvas, color,
+                                   (round(x + thickness), round(y + height - thickness / 2)),
+                                   max(1, round(thickness / 2)))
+                x += thickness * 3
+            else:
+                if character in '0123456789':
+                    for segment in digits[int(character)]:
+                        pygame.draw.polygon(self.canvas, color,
+                                            [(round(x + px), round(y + py))
+                                             for px, py in segments[segment]])
+                x += width + thickness
+
     def panel(self, rect, color=CYAN, surface=None):
         pygame.draw.rect(surface or self.canvas, color, rect, 1)
 
