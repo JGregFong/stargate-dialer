@@ -435,8 +435,12 @@ the preview smoke checks pass:
 
 Download the archive for your platform from the **Assets** section of a GitHub
 release. Publishing a release triggers builds from its tag and attaches both
-archives after the smoke checks pass. Development builds are available from
-successful runs in the repository's **Actions** tab for 14 days.
+archives and `SHA256SUMS.txt` after the smoke checks pass. To verify your download,
+compare its hash with the matching entry in `SHA256SUMS.txt`. Use
+`Get-FileHash -Algorithm SHA256 .\StargateDialer-windows-x64.zip` in PowerShell
+or `sha256sum StargateDialer-linux-x64.tar.gz` on Linux.
+Development builds are available from successful runs in the repository's
+**Actions** tab for 14 days.
 
 Extract the archive before running the executable. The Linux tar archive
 preserves executable permissions. Each executable is built on its own operating

@@ -118,8 +118,10 @@ jobs:
           GH_REPO: ${{ github.repository }}
           RELEASE_TAG: ${{ github.event.release.tag_name }}
         run: |
-          windows=release-assets/StargateDialer-windows-x64.zip
-          linux=release-assets/StargateDialer-linux-x64.tar.gz
+          cd release-assets
+          windows=StargateDialer-windows-x64.zip
+          linux=StargateDialer-linux-x64.tar.gz
           test -s "$windows"
           test -s "$linux"
-          gh release upload "$RELEASE_TAG" "$windows" "$linux" --clobber
+          sha256sum "$windows" "$linux" > SHA256SUMS.txt
+          gh release upload "$RELEASE_TAG" "$windows" "$linux" SHA256SUMS.txt --clobber
