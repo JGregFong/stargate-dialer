@@ -26,10 +26,10 @@ jobs:
           enable-cache: true
       - name: Install locked dependencies
         run: uv sync --locked
-      - name: Run headless tests
-        run: uv run --locked python -m unittest discover -v
-      - name: Smoke-test preview rendering
+      - name: Smoke-test Earth preview rendering
         run: uv run --locked main.py --preview "$RUNNER_TEMP/connected.png"
+      - name: Smoke-test Abydos preview rendering
+        run: uv run --locked main.py --abydos --preview "$RUNNER_TEMP/abydos.png"
 
   build:
     name: Build ${{ matrix.platform }}

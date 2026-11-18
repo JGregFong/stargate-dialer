@@ -1,28 +1,25 @@
 # Changelog
 
-## Unreleased
+## v2.0.0 — the Abydos release
 
 ### Added
 
-- Automatically restore and quietly autosave user preferences in a per-user JSON file, with debounced atomic writes, graceful failure handling, and an exit flush.
-
-### Fixed
-
-- Smooth video horizon transitions with read-ahead frame buffers, multithreaded decoding, and opening/closing preload during dialing instead of repeated 4K keyframe seeks.
-
-### Added
-
-- Optional custom event-horizon video playback on Earth and offworld gates, with file selection and editable opening/closing timestamps in Options.
-- Background PyAV decoding, aspect-preserving circular video rendering, steady-section looping, and procedural fallback for video errors.
-- Configure the supplied MKV locally; keep large custom video files external to executable packages.
+- Earth–Abydos travel through an open wormhole, with a themed Abydos gate, circular DHD, local origin glyph, and synchronized shutdown at both ends.
+- Three offworld dialing modes: stationary DHD, continuous Spinning, and glyph-by-glyph Rotary.
+- Animated Stargate Command logo on the Earth console.
+- Automatic restoration and debounced, atomic saving of per-user preferences.
+- Optional event-horizon video on Earth and Abydos, with external file selection, editable opening and closing timestamps, steady-section looping, and a procedural fallback.
+- Optional randomized wormhole duration that adds 5–45 seconds to each new connection.
 
 ### Changed
 
-- Show elapsed wormhole time counting up from 00:00 instead of a countdown.
+- Show elapsed wormhole time counting up from 00:00.
+- Extend the speed cycle to 5, 10, 15, 20, and 30 RPM.
+- Refine the Options and Event Horizon Video layouts and keep custom video files external to executable packages.
 
-### Added
+### Fixed
 
-- Optional randomized wormhole duration: add 5–45 seconds once per newly established connection, controlled from Options.
+- Smooth video transitions using buffered, multithreaded decoding and preloading opening and closing frames during dialing.
 
 ## v1.2.0 — 2026-10-25
 

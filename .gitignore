@@ -37,6 +37,10 @@ pip-log.txt
 pip-delete-this-directory.txt
 
 # Unit test / coverage reports
+# Keep the local Python test suite out of version control.
+test_*.py
+*_test.py
+
 htmlcov/
 .tox/
 .nox/

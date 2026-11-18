@@ -80,7 +80,7 @@ if selected, otherwise the last destination glyph. Input is frozen during dialin
 
 The ring alternates direction and cruises at 5 RPM by default. Use
 `uv run main.py --rpm 8` to select another positive speed. The keyboard's **SPEED**
-button cycles through **5 → 10 → 15 → 5 RPM** without clearing the loaded address.
+button cycles through **5 → 10 → 15 → 20 → 30 → 5 RPM** without clearing the loaded address.
 It is available while idle or after a failed attempt and disabled during dialing
 and gate animations. One RPM setting applies
 to computer dialing, DHD queue/resume, ring rendering, and abort braking; encoding
@@ -135,43 +135,49 @@ early; travel does not replay opening audio. Connecting alone never changes loca
 Arrival gates show an incoming connection with empty address slots and unselected
 DHD keys. The departure address stays at its source and is not shown during the
 arrival gate's shutdown fade. A fresh local entry restores normal address display.
-Offworld gates show a cached static gate image and glyph slots without telemetry, iris,
-ring motion, or flying glyph animations. The event horizon still opens and closes.
+Offworld gates show a fixed frame and glyph slots without telemetry, iris, or
+Earth-style flying glyph animations. The inner ring can rotate in Spinning and
+Rotary modes. The event horizon still opens and closes.
 The gate has layered metallic bands, engraved track panels, inner vents, and
 ribbed V-shaped chevrons with recessed jewels that illuminate as symbols lock.
 The gate image is drawn procedurally; the reference photographs are not bundled
 as game artwork.
 
 The offworld keyboard has two rings of 19 wedge buttons and a central red
-**ACTIVATE** dome. Each glyph press lights its button immediately, then encodes
-its slot and engages its chevron after a short 0.2-second delay. Rapid presses
-queue in order; shutdown cancels pending engagements. Select destination
-glyphs, the local origin last, then activate. Length controls support 7–9-symbol
-addresses on Earth; offworld DHDs are restricted to seven symbols, with the
-address-mode controls hidden and longer address loads rejected. Arrival offworld
-also restores seven-symbol mode. To return, enter Earth's address **27, 25, 4, 35, 10, 28**, followed by
-the local origin and Activate, then **TRAVEL** after connecting. Hover/click areas
-follow each wedge rather than rectangular bounding boxes.
+**ACTIVATE** dome. Select the destination glyphs, then the local origin, then
+activate. Glyph presses light their buttons immediately and queue in order.
+Length controls support 7–9-symbol addresses on Earth. Arrival offworld switches
+to seven-symbol mode, hides the address-mode controls, and rejects longer
+address loads. To return, enter Earth's address **27, 25, 4, 35, 10, 28**, then
+the local origin. Press the dome to activate, then click **TRAVEL** after
+connecting. Each wedge has its own hover and click area.
 
 Computer encoding cues are suppressed offworld; DHD button and gate sounds remain
 active. Returning to Earth restores the existing computer-sound preference.
-One continuous roll loop starts on the first glyph without restarting on later
-presses, and stops as soon as the final chevron engages (or on failure/shutdown).
+In DHD and Spinning modes, the roll sound loops from the first glyph through the
+final engagement or an interruption. In Rotary mode it plays during ring travel.
 Offworld engagement uses `chev_usual_1.wav` through `chev_usual_7.wav` in shuffled
 sets: every clip plays once before reshuffling, with no immediate repeat across
 sets. Earth retains its original chevron sounds.
-The offworld DHD's **SGC DIALING** toggle defaults off and can be changed while
-idle. When enabled, glyph presses queue while the ring rotates and chevrons lock
-in order, using the SGC console's DHD queue and timing. The ring pauses when the
-queue runs out and resumes with the next press. After entering the complete
-address and origin, the dome can queue activation before the final lock. The frame and
-chevrons stay fixed. Offworld computer encoding sounds remain disabled.
+
+While idle, click the dialing mode button to cycle through three modes:
+
+- **DHD DIALING** is the default. The ring stays still and each queued glyph
+  engages its chevron after a short 0.2-second delay.
+- **SPINNING DIALING** uses the same engagement delay. The ring spins continuously
+  between entries and begins slowing when the final chevron engages.
+- **ROTARY DIALING** turns the ring to each queued glyph before engaging its
+  chevron. The ring pauses when the queue runs out and resumes on the next press.
+
+After entering the complete address and origin, the dome can queue activation
+before the final lock.
+
 Selected glyph buttons have orange outlines matching their symbols. The central
 dome activates a complete address and serves as Shutdown while connected or
 during an unfinished dialing sequence; there is no separate Shutdown button.
-During SGC-style offworld dialing, shutdown brakes the ring to a nearby tile
-center, stops the roll, then plays `dial_fail_sg1.mp3` once. Instant dialing
-stops immediately and plays the same failure cue when an entry is interrupted.
+Shutdown cancels pending engagements. If the ring is moving, it brakes before
+playing the failure cue. An interrupted entry without ring braking plays the cue
+immediately.
 Closing an established connection or stopping an idle gate does not play that cue.
 Offworld slot glyphs and DHD selection lights fade together during shutdown.
 This uses one offworld fade timeline; after closure, new entry is immediately
@@ -180,8 +186,8 @@ Clear buttons; use the center dome to cancel an unfinished entry.
 The lights linger for 0.6 seconds after connection closure or ring braking, then
 fade over two seconds. Starting a fresh entry clears any remaining selection fade.
 The offworld **SPEED / RPM** button uses the same speed cycle as the SGC keyboard.
-It is enabled only with **SGC DIALING** on, while the gate is idle and transitions
-have finished. Hover labels appear below these controls.
+It is available in Spinning and Rotary modes while the gate is idle and
+transitions have finished. Hover labels appear below these controls.
 
 `themes.py` owns immutable planet profiles: background, DHD tint/style, local
 origin artwork, keyboard inventory, and a reserved ambient-sound path. DHD RGB
@@ -275,7 +281,7 @@ remembered for subsequent sessions.
 
 Preferences restore automatically at startup and save quietly after changes and
 on normal exit. This includes volume, sound choices, glyph sizing, randomized
-duration, dialing mode, speed, symbol count, offworld SGC dialing, and video file,
+duration, dialing mode, speed, symbol count, offworld dialing mode, and video file,
 enablement, and timestamps. Video playback starts disabled on a fresh setup;
 enabling it explicitly is remembered. An explicit `--rpm` overrides the saved speed.
 
@@ -289,9 +295,10 @@ entered addresses are not restored. Preview commands do not read or save prefere
 ## Custom event-horizon videos
 
 Open **OPTIONS → EVENT HORIZON VIDEO**, choose **SELECT VIDEO FILE**, and select
-an MKV, MP4, WebM, AVI, or MOV file. Enable **USE VIDEO**, edit the **OPENING** and
-**CLOSING TIMESTAMP** fields, and press **APPLY**. Acceptable formats are seconds,
-`MM:SS`, or `HH:MM:SS`, with optional decimal seconds. Clicking a field and typing
+an MKV, MP4, WebM, AVI, MOV, or M4V file. Selecting a valid file enables playback
+in the draft. Edit the **OPENING TIMESTAMP** and **CLOSING TIMESTAMP** fields and
+press **APPLY**. Acceptable formats are seconds, `MM:SS`, or `HH:MM:SS`, with
+optional decimal seconds. Clicking a field and typing
 replaces its value. Back/Cancel discards edits. Changes apply to the next connection.
 
 Playback starts at the opening marker when a connection is established. Shutdown
@@ -392,24 +399,26 @@ retained for compatibility and is not used for destination resolution.
 
 ## Verification
 
-Run all tests and generate an off-screen connected-state screenshot:
+Generate off-screen connected-state screenshots for Earth and Abydos:
 
 ```sh
-uv run python -m unittest discover -v
 uv run main.py --preview connected.png
+uv run main.py --abydos --preview abydos.png
 ```
 
 For headless Linux verification:
 
 ```sh
-SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy uv run python -m unittest discover -v
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy uv run main.py --preview connected.png
+SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy uv run main.py --abydos --preview abydos.png
 ```
 
 The existing virtual environment's Python can be used instead of `uv run`.
-The GitHub Actions workflow `.github/workflows/headless-tests.yml` runs the entire
-test suite and a preview smoke test on pushes, pull requests, and manual runs.
-After the tests pass, it builds and smoke-tests Windows and Linux executables.
+If you have a local copy of the Python test suite, run it with
+`uv run python -m unittest discover -v`. Test files are ignored by Git.
+The GitHub Actions workflow `.github/workflows/headless-tests.yml` smoke-tests both
+previews on pushes, pull requests, and manual runs, then builds and smoke-tests
+Windows and Linux executables.
 It uses Python 3.14, locked dependencies from `uv.lock`, and SDL dummy video/audio
 drivers.
 Screenshots are in `previews/`; visual references are in `reference/`.
@@ -417,7 +426,7 @@ Screenshots are in `previews/`; visual references are in `reference/`.
 ## Windows and Linux executables
 
 The **Tests and builds** GitHub Actions workflow creates these downloads after
-the headless tests pass:
+the preview smoke checks pass:
 
 | Artifact | Contents | Build host |
 | --- | --- | --- |
@@ -480,9 +489,10 @@ The glyph font `stargate_sg1_adress_glyphs.ttf` is by Joy Anne Baker, from
 Sounds come from a fork of RafaelDeJongh's Carter's Addon pack for Garry's Mod.
 Stargate materials and brand copyright belong to Amazon and MGM Studios.
 
+The animated Stargate Command logo is by David Gian-Cursio.
+[Stargate Command plaque and logo](https://www.gian-cursio.net/2021/03/sgc-plaque/)
+
 ChatGPT's Codex assisted with generating the Pygame code. The interface and event
 horizon are drawn procedurally with Pygame and inspired by the supplied reference
 photographs. No external artwork, sound effects, or voices were generated through
 ChatGPT.
-
-The offworld dialing button cycles **DHD DIALING -> SPINNING DIALING -> ROTARY DIALING**. DHD mode keeps the ring still; spinning mode engages chevrons with the same short delay while the ring turns continuously between entries, stopping at the final chevron. Rotary mode rotates to each selected glyph before engaging. RPM is available for both moving modes; mode changes require an idle gate.
