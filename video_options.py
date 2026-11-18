@@ -23,8 +23,8 @@ def select_video_file():
 
 
 class VideoOptions:
-    fields = {'opening': pygame.Rect(640, 406, 390, 38),
-              'closing': pygame.Rect(640, 458, 390, 38)}
+    fields = {'opening': pygame.Rect(640, 458, 390, 38),
+              'closing': pygame.Rect(640, 510, 390, 38)}
 
     def __init__(self, ui, settings, choose_file=select_video_file):
         self.ui, self.settings, self.choose_file = ui, settings, choose_file
@@ -47,7 +47,7 @@ class VideoOptions:
         with decoder.lock:
             playback_error = decoder.errors.get(self.draft.path, '')
         error_lines = textwrap.wrap(self.error or playback_error, 82)[:2]
-        box = pygame.Rect(220, 230, 840, 456 + len(error_lines)*18)
+        box = pygame.Rect(220, 230, 840, 508 + len(error_lines)*18)
         pygame.draw.rect(ui.canvas, BG, box)
         pygame.draw.rect(ui.canvas, CYAN, box, 2, border_radius=12)
         ui.text('EVENT HORIZON VIDEO', (250, 254), 25)
@@ -57,21 +57,30 @@ class VideoOptions:
         ui.button((650, 310, 380, 40), 'SELECT VIDEO FILE', 'video_browse')
         ui.centered_slot_text(Path(self.draft.path).name or 'No video selected',
                               pygame.Rect(245, 0, 790, 30), 368, 14, WHITE)
-        for name, rect in self.fields.items():
-            ui.text(name.upper() + ' TIMESTAMP', (250, rect.y + 10), 16, CYAN)
-            ui.control(rect, selected=self.focus == name)
-            ui.text(self.text[name] + ('_' if self.focus == name else ''),
-                    (rect.x + 12, rect.y + 10), 16, WHITE)
-        for i, line in enumerate([
-                'Use seconds, MM:SS, or HH:MM:SS (decimals supported).',
-                'Opening: where playback starts when the wormhole connects.',
-                'Closing: where playback jumps when the gate shuts down.',
-                'Long connections loop the steady section; video audio is muted.',
-                'Changes apply to the next connection. Existing gate sounds remain.']):
-            ui.text(line, (250, 518 + i*20), 13, YELLOW)
+        ui.button((250, 406, 780, 38), 'LOOP FULL VIDEO / NO TIMESTAMPS',
+                  'video_loop', selected=self.draft.loop)
+        if not self.draft.loop:
+            for name, rect in self.fields.items():
+                ui.text(name.upper() + ' TIMESTAMP', (250, rect.y + 10), 16, CYAN)
+                ui.control(rect, selected=self.focus == name)
+                ui.text(self.text[name] + ('_' if self.focus == name else ''),
+                        (rect.x + 12, rect.y + 10), 16, WHITE)
+        instructions = ([
+            'Loop mode repeats the entire video from beginning to end.',
+            'Opening and closing timestamps are ignored in this mode.',
+            'Turn loop mode off to reveal and edit the timestamps.',
+            'Video audio is muted. Existing gate sounds remain.',
+            'Changes apply to the next connection.'] if self.draft.loop else [
+            'Use seconds, MM:SS, or HH:MM:SS (decimals supported).',
+            'Opening: where playback starts when the wormhole connects.',
+            'Closing: where playback jumps when the gate shuts down.',
+            'Long connections loop the steady section; video audio is muted.',
+            'Loop mode ignores timestamps. Changes apply to the next connection.'])
+        for i, line in enumerate(instructions):
+            ui.text(line, (250, 570 + i*20), 13, YELLOW)
         for i, line in enumerate(error_lines):
-            ui.text(line, (250, 618 + i*18), 13, RED)
-        ui.button((250, 626 + len(error_lines)*18, 780, 40), 'APPLY', 'video_apply')
+            ui.text(line, (250, 670 + i*18), 13, RED)
+        ui.button((250, 678 + len(error_lines)*18, 780, 40), 'APPLY', 'video_apply')
 
     def select(self, path):
         if not path:
@@ -91,12 +100,13 @@ class VideoOptions:
 
     def apply(self):
         try:
-            self.draft.opening = parse_timestamp(self.text['opening'])
-            self.draft.closing = parse_timestamp(self.text['closing'])
+            if not self.draft.loop:
+                self.draft.opening = parse_timestamp(self.text['opening'])
+                self.draft.closing = parse_timestamp(self.text['closing'])
             if self.draft.enabled:
                 duration = probe_video(self.draft.path)
                 validate_video(self.draft, duration)
-            for name in ('path', 'enabled', 'opening', 'closing'):
+            for name in ('path', 'enabled', 'loop', 'opening', 'closing'):
                 setattr(self.settings, name, getattr(self.draft, name))
             decoder = video_decoder()
             with decoder.lock:
@@ -125,11 +135,15 @@ class VideoOptions:
                         self.replace_text = False
         elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             self.focus = next((name for name, rect in self.fields.items()
-                               if rect.collidepoint(self.ui.mouse)), None)
+                               if not self.draft.loop and rect.collidepoint(self.ui.mouse)), None)
             self.replace_text = self.focus is not None
             for rect, action, enabled in self.ui.buttons:
                 if enabled and rect.collidepoint(self.ui.mouse):
-                    if action == 'video_toggle' and self.draft.path:
+                    if action == 'video_loop':
+                        self.draft.loop = not self.draft.loop
+                        self.focus = None
+                        self.error = ''
+                    elif action == 'video_toggle' and self.draft.path:
                         self.draft.enabled = not self.draft.enabled
                     elif action == 'video_browse':
                         try:

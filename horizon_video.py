@@ -16,6 +16,7 @@ SUPPLIED_VIDEO = Path(__file__).resolve().parent / 'media' / 'videos' / (
 class VideoSettings:
     path: str = ''
     enabled: bool = False
+    loop: bool = False
     opening: float = 2.0
     closing: float = 2313.0
 
@@ -54,12 +55,18 @@ def probe_video(path):
 
 
 def validate_video(settings, duration):
+    if not math.isfinite(duration) or duration <= 0:
+        raise ValueError('Video duration must be positive and finite.')
+    if settings.loop:
+        return
     if not (0 <= settings.opening < settings.closing < duration):
         raise ValueError('Use 0 <= opening < closing < video duration.')
 
 
 def playback_time(settings, elapsed, duration, closing_elapsed=None):
     """Loop only the steady section if the connection outlasts the active footage."""
+    if settings.loop:
+        return max(0, elapsed) % duration
     if closing_elapsed is not None:
         return min(duration - .001, settings.closing + max(0, closing_elapsed))
     target = settings.opening + max(0, elapsed)
@@ -218,8 +225,9 @@ class HorizonVideo:
         config = self.settings
         if config.enabled:
             diameter = radius * 2 + 1
-            self.decoder.request(config.path, config.opening, diameter)
-            self.closing_decoder.request(config.path, config.closing, diameter)
+            self.decoder.request(config.path, 0 if config.loop else config.opening, diameter)
+            if not config.loop:
+                self.closing_decoder.request(config.path, config.closing, diameter)
 
     def close(self):
         self.decoder.close()
@@ -239,16 +247,20 @@ class HorizonVideo:
             error = self.decoder.errors.get(config.path)
         if error:
             return None
+        if config.loop and not duration:
+            self.decoder.request(config.path, 0, radius * 2 + 1)
+            return None
         duration = duration or max(config.closing + 1, config.opening + 1)
         try:
             validate_video(config, duration)
         except ValueError:
             return None
         closing = now - visual.horizon_closing[0] if visual.horizon_closing else None
-        target = playback_time(config, dialer.connection.elapsed(now), duration, closing)
+        elapsed = max(0, now - self.session[1]) if config.loop else dialer.connection.elapsed(now)
+        target = playback_time(config, elapsed, duration, closing)
         diameter = radius * 2 + 1
-        decoder = self.closing_decoder if closing is not None else self.decoder
-        if closing is None:
+        decoder = self.closing_decoder if closing is not None and not config.loop else self.decoder
+        if closing is None and not config.loop:
             self.closing_decoder.request(config.path, config.closing, diameter)
         data = decoder.request(config.path, target, diameter)
         if data is None:
@@ -276,7 +288,7 @@ class HorizonVideo:
         return image
 
     def close_duration(self):
-        if self.active is not None and self.active.enabled:
+        if self.active is not None and self.active.enabled and not self.active.loop:
             with self.decoder.lock:
                 duration = self.decoder.info.get(self.active.path)
                 error = self.decoder.errors.get(self.active.path)

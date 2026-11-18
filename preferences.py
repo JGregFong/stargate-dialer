@@ -50,14 +50,16 @@ def clean_preferences(data):
         path = video.get('path')
         if isinstance(path, str) and len(path) <= 4096 and '\0' not in path:
             valid['path'] = path
-        if type(video.get('enabled')) is bool:
-            valid['enabled'] = video['enabled']
+        for key in ('enabled', 'loop'):
+            if type(video.get(key)) is bool:
+                valid[key] = video[key]
         opening, closing = video.get('opening'), video.get('closing')
         if (finite_number(opening, 0, 10**9) and finite_number(closing, 0, 10**9)
                 and opening < closing):
             valid.update(opening=opening, closing=closing)
         elif 'opening' in video or 'closing' in video:
-            valid['enabled'] = False
+            if not valid.get('loop', False):
+                valid['enabled'] = False
         result['video'] = valid
     return result
 
@@ -75,7 +77,7 @@ def capture_preferences(settings, dialer, audio):
         'behavior': dialer.behavior,
         'symbol_count': dialer.symbol_count,
         'offworld_dialing_mode': dialer.offworld_dialing_mode,
-        'video': {'path': video.path, 'enabled': video.enabled,
+        'video': {'path': video.path, 'enabled': video.enabled, 'loop': video.loop,
                   'opening': video.opening, 'closing': video.closing},
     }
 
